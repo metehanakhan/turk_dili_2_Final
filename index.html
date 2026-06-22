@@ -4124,9 +4124,42 @@
             if (examTimerInterval) { clearInterval(examTimerInterval); examTimerInterval = null; }
             var timerEl = document.getElementById('exam-timer');
             if (timerEl) { timerEl.classList.add('hidden'); timerEl.classList.remove('text-accent-rose'); }
-            document.getElementById('results-analytics-box').classList.add('hidden');
-            document.getElementById('active-quiz-box').classList.add('hidden');
             switchTab(catToTab(cat));
+            // Scroll to the relevant topic section and open its accordion
+            setTimeout(function() {
+                var tabEl = document.getElementById('tab-' + catToTab(cat));
+                if (!tabEl) return;
+                // Search for the category text within accordion headers
+                var headers = tabEl.querySelectorAll('[onclick*="toggleSummaryAccordion"]');
+                var found = false;
+                var catLower = cat.toLowerCase();
+                for (var i = 0; i < headers.length; i++) {
+                    var headerText = headers[i].innerText.toLowerCase();
+                    if (headerText.indexOf(catLower) !== -1) {
+                        // Open the accordion
+                        var panel = headers[i].nextElementSibling;
+                        if (panel && panel.classList.contains('hidden')) {
+                            panel.classList.remove('hidden');
+                            var icon = headers[i].querySelector('svg:last-child');
+                            if (icon) icon.classList.add('rotate-180');
+                        }
+                        headers[i].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    // Fallback: search content panels
+                    var allPanels = tabEl.querySelectorAll('div > div > div');
+                    for (var j = 0; j < allPanels.length; j++) {
+                        var panelText = allPanels[j].innerText.toLowerCase();
+                        if (panelText.indexOf(catLower) !== -1) {
+                            allPanels[j].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            break;
+                        }
+                    }
+                }
+            }, 200);
         }
 
         function generateAIStudyRecommendations(catStats) {
@@ -4970,6 +5003,8 @@
             if (examTimerInterval) { clearInterval(examTimerInterval); examTimerInterval = null; }
             var timerEl = document.getElementById('exam-timer');
             if (timerEl) { timerEl.classList.add('hidden'); timerEl.classList.remove('text-accent-rose'); }
+            document.getElementById('results-analytics-box').classList.add('hidden');
+            document.getElementById('active-quiz-box').classList.remove('hidden');
             examQuestions = [...questionsDataset];
             currentQuestionIndex = 0;
             selectedAnswers = {};
@@ -4984,6 +5019,8 @@
         }
 
         function openMiniExam() {
+            document.getElementById('results-analytics-box').classList.add('hidden');
+            document.getElementById('active-quiz-box').classList.remove('hidden');
             const total = questionsDataset.length;
             const count = 10;
             const shuffled = [...questionsDataset].sort(() => Math.random() - 0.5);
@@ -5037,6 +5074,8 @@
 
         // Category-based Mini Test Feature
         function startCategoryMiniTest(category) {
+            document.getElementById('results-analytics-box').classList.add('hidden');
+            document.getElementById('active-quiz-box').classList.remove('hidden');
             let pool;
             if (category === 'all') {
                 pool = [...questionsDataset].sort(() => Math.random() - 0.5).slice(0, 5);
