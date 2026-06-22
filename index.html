@@ -445,6 +445,8 @@
         html.light-mode input, html.light-mode textarea {
             color-scheme: light;
         }
+        .nav-scroll::-webkit-scrollbar { display: none; }
+        .nav-scroll { -ms-overflow-style: none; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col pt-safe pb-safe bg-slate-900 text-slate-100 overflow-x-hidden">
@@ -2519,37 +2521,37 @@
 
     </main>
 
-    <nav class="fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-xl border-t border-slate-800 shadow-[0_-10px_30px_rgba(0,0,0,0.3)] z-40" style="padding-bottom: env(safe-area-inset-bottom, 8px);">
-        <div class="max-w-4xl mx-auto h-16 flex justify-around items-center px-4">
-            <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-item flex flex-col items-center justify-center text-slate-500 hover:text-brand-400 transition-all duration-200 active:scale-90">
+    <nav class="fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-xl border-t border-slate-700 shadow-[0_-10px_30px_rgba(0,0,0,0.3)] z-40" style="padding-bottom: env(safe-area-inset-bottom, 8px);">
+        <div class="nav-scroll max-w-4xl mx-auto h-16 flex flex-nowrap items-center justify-start md:justify-around gap-0 md:gap-0 px-1 md:px-4 overflow-x-auto overflow-y-hidden">
+            <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-item flex flex-col items-center justify-center text-slate-500 hover:text-brand-400 transition-all duration-200 active:scale-90 shrink-0 min-w-[60px] md:min-w-0">
                 <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
                 <span class="text-[9px] font-bold tracking-wide">Portal</span>
             </button>
-            <button onclick="openFullExam()" id="nav-quiz-engine" class="nav-item flex flex-col items-center justify-center text-slate-500 hover:text-brand-400 transition-all duration-200 active:scale-90">
+            <button onclick="openFullExam()" id="nav-quiz-engine" class="nav-item flex flex-col items-center justify-center text-slate-500 hover:text-brand-400 transition-all duration-200 active:scale-90 shrink-0 min-w-[60px] md:min-w-0">
                 <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
                 <span class="text-[9px] font-bold tracking-wide">Simülasyon</span>
             </button>
-            <button onclick="switchTab('library')" id="nav-library" class="nav-item flex flex-col items-center justify-center text-slate-500 hover:text-brand-400 transition-all duration-200 active:scale-90">
+            <button onclick="switchTab('library')" id="nav-library" class="nav-item flex flex-col items-center justify-center text-slate-500 hover:text-brand-400 transition-all duration-200 active:scale-90 shrink-0 min-w-[60px] md:min-w-0">
                 <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
                 <span class="text-[9px] font-bold tracking-wide">Tüm Sorular</span>
             </button>
-            <button onclick="switchTab('proofreader-lab')" id="nav-proofreader-lab" class="nav-item flex flex-col items-center justify-center text-slate-500 hover:text-brand-400 transition-all duration-200 active:scale-90">
+            <button onclick="switchTab('proofreader-lab')" id="nav-proofreader-lab" class="nav-item flex flex-col items-center justify-center text-slate-500 hover:text-brand-400 transition-all duration-200 active:scale-90 shrink-0 min-w-[60px] md:min-w-0">
                 <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
                 <span class="text-[9px] font-bold tracking-wide">Dil Labı</span>
             </button>
-            <button onclick="switchTab('summary')" id="nav-summary" class="nav-item flex flex-col items-center justify-center text-slate-500 hover:text-brand-400 transition-all duration-200 active:scale-90">
+            <button onclick="switchTab('summary')" id="nav-summary" class="nav-item flex flex-col items-center justify-center text-slate-500 hover:text-brand-400 transition-all duration-200 active:scale-90 shrink-0 min-w-[60px] md:min-w-0">
                 <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                 <span class="text-[9px] font-bold tracking-wide">15 Modül Özet</span>
             </button>
-            <button onclick="switchTab('konu-anlatimi')" id="nav-konu-anlatimi" class="nav-item flex flex-col items-center justify-center text-slate-500 hover:text-brand-400 transition-all duration-200 active:scale-90">
+            <button onclick="switchTab('konu-anlatimi')" id="nav-konu-anlatimi" class="nav-item flex flex-col items-center justify-center text-slate-500 hover:text-brand-400 transition-all duration-200 active:scale-90 shrink-0 min-w-[60px] md:min-w-0">
                 <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
                 <span class="text-[9px] font-bold tracking-wide">Konu Anlatımı</span>
             </button>
-            <button onclick="switchTab('konu-2')" id="nav-konu-2" class="nav-item flex flex-col items-center justify-center text-slate-500 hover:text-brand-400 transition-all duration-200 active:scale-90">
+            <button onclick="switchTab('konu-2')" id="nav-konu-2" class="nav-item flex flex-col items-center justify-center text-slate-500 hover:text-brand-400 transition-all duration-200 active:scale-90 shrink-0 min-w-[60px] md:min-w-0">
                 <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
                 <span class="text-[9px] font-bold tracking-wide">Konu Anlatımı 2</span>
             </button>
-            <button onclick="switchTab('wordguide')" id="nav-wordguide" class="nav-item flex flex-col items-center justify-center text-slate-500 hover:text-brand-400 transition-all duration-200 active:scale-90">
+            <button onclick="switchTab('wordguide')" id="nav-wordguide" class="nav-item flex flex-col items-center justify-center text-slate-500 hover:text-brand-400 transition-all duration-200 active:scale-90 shrink-0 min-w-[60px] md:min-w-0">
                 <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"></path></svg>
                 <span class="text-[9px] font-bold tracking-wide">Dil Rehberi</span>
             </button>
