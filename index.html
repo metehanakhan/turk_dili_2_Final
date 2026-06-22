@@ -2998,13 +2998,10 @@
                 processVoices();
             };
 
-            // Samsung Internet / mobile fallback: retry on focus or click
+            // Samsung Internet / mobile fallback: retry on focus
             document.addEventListener('visibilitychange', function() {
                 if (!document.hidden && !voiceLoaded) processVoices();
             });
-            document.addEventListener('click', function onceClick() {
-                if (!voiceLoaded) processVoices();
-            }, { once: true });
         }
 
         function isTurkishByLang(v) {
@@ -3317,48 +3314,16 @@
         }
 
         function speakText(text) {
-            if (!ttsEnabled || !('speechSynthesis' in window)) {
-                showNotification('Seslendirme kullanılamıyor', 'amber');
-                return;
-            }
+            if (!ttsEnabled || !('speechSynthesis' in window)) return;
             window.speechSynthesis.cancel();
             isPausedManually = false;
             lastSpokenText = text;
-
-            // Validate selectedVoice is still available (important for Chrome Android)
-            if (selectedVoice) {
-                var voices = window.speechSynthesis.getVoices();
-                var found = false;
-                for (var i = 0; i < voices.length; i++) {
-                    if (voices[i].name === selectedVoice.name) {
-                        selectedVoice = voices[i];
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) {
-                    // Voice no longer available — try to find Turkish voice
-                    for (var i = 0; i < voices.length; i++) {
-                        if (isTurkishByLang(voices[i]) || isTurkishByName(voices[i])) {
-                            selectedVoice = voices[i];
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (!found) selectedVoice = null;
-                }
-            }
-
+            
             activeUtterance = new SpeechSynthesisUtterance(text);
-            var lang = selectedVoice && selectedVoice.lang ? selectedVoice.lang : 'tr-TR';
-            activeUtterance.lang = lang;
-            activeUtterance.rate = lang.startsWith('tr') ? 1.15 : 1.0;
-
-            // Only assign voice if we have one — Chrome Android may speak with system default otherwise
-            if (selectedVoice) {
-                activeUtterance.voice = selectedVoice;
-            }
-
+            activeUtterance.lang = selectedVoice && selectedVoice.lang ? selectedVoice.lang : 'tr-TR';
+            activeUtterance.rate = selectedVoice && selectedVoice.lang && selectedVoice.lang.startsWith('tr') ? 1.15 : 1.0;
+            if (selectedVoice) activeUtterance.voice = selectedVoice;
+            
             activeUtterance.onstart = function() {
                 document.getElementById('speech-control-bar').classList.remove('hidden');
             };
@@ -3367,28 +3332,11 @@
                     document.getElementById('speech-control-bar').classList.add('hidden');
                 }
             };
-            activeUtterance.onerror = function(e) {
+            activeUtterance.onerror = function() {
                 document.getElementById('speech-control-bar').classList.add('hidden');
-                // Chrome Android: try once more with lang-only (no voice assignment)
-                if (!selectedVoice && e.error !== 'canceled') {
-                    var fallback = new SpeechSynthesisUtterance(text);
-                    fallback.lang = 'tr-TR';
-                    fallback.rate = 1.0;
-                    fallback.onstart = activeUtterance.onstart;
-                    fallback.onend = activeUtterance.onend;
-                    fallback.onerror = function() {
-                        showNotification('Seslendirme başarısız. Google TTS Türkçe ses paketi yüklü mü?', 'amber');
-                    };
-                    window.speechSynthesis.speak(fallback);
-                } else if (e.error !== 'canceled') {
-                    showNotification('Seslendirme hatası: ' + e.error, 'amber');
-                }
             };
-
-            // Chrome Android: ensure speech synthesis is triggered by user gesture
-            try { window.speechSynthesis.speak(activeUtterance); } catch(e) {
-                showNotification('Seslendirme başlatılamadı: ' + e.message, 'amber');
-            }
+            
+            window.speechSynthesis.speak(activeUtterance);
         }
 
         function pauseSpeech() {
@@ -3703,10 +3651,7 @@
             }
 
             if (voices.length === 0) {
-                list.innerHTML = '<div class="px-3 py-6 text-xs text-slate-500 text-center space-y-2">Ses motoru yüklenmedi.<br><button onclick="populateVoiceSelector()" class="px-3 py-1 bg-brand-500/20 text-brand-300 rounded-lg text-[10px] font-bold">Tekrar Tara</button></div>';
-            } else if (turkishVoices.length === 0) {
-                // Chrome Android often has no Turkish TTS voices
-                list.innerHTML = '<div class="px-3 py-4 text-xs text-slate-500 text-center space-y-2">🇹🇷 Türkçe ses bulunamadı.<br><span class="text-[9px] text-amber-400/70">Android: Ayarlar > Genel Yönetim > Dil ve Giriş > Metin Okuma > Google TTS > Ses Verilerini Yükle</span><br><button onclick="populateVoiceSelector()" class="mt-1 px-3 py-1 bg-brand-500/20 text-brand-300 rounded-lg text-[10px] font-bold">Tekrar Tara</button></div>';
+                list.innerHTML = '<div class="px-3 py-6 text-xs text-slate-500 text-center">Ses motoru yüklenmedi. Sayfayı yenile veya Edge tarayıcı dene.<br><button onclick="populateVoiceSelector()" class="mt-2 px-3 py-1 bg-brand-500/20 text-brand-300 rounded-lg text-[10px] font-bold">Tekrar Tara</button></div>';
             }
         }
 
