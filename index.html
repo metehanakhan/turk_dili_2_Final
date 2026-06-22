@@ -489,9 +489,9 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
                     </svg>
                 </button>
-                <div class="hidden sm:flex bg-slate-800/50 p-1 rounded-xl border border-brand-500/10 text-xs font-semibold">
-                    <button onclick="setGlobalStudyMode('quiz')" id="mode-quiz" class="px-3 py-1.5 rounded-lg transition-all bg-brand-500/20 text-white shadow-sm">Simülasyon</button>
-                    <button onclick="setGlobalStudyMode('practice')" id="mode-practice" class="px-3 py-1.5 rounded-lg transition-all text-slate-400 hover:text-white">Çözüm Odaklı</button>
+                <div class="flex bg-slate-800/50 p-1 rounded-xl border border-brand-500/10 text-[9px] sm:text-xs font-semibold">
+                    <button onclick="setGlobalStudyMode('quiz')" id="mode-quiz" class="px-2 sm:px-3 py-1.5 rounded-lg transition-all bg-brand-500/20 text-white shadow-sm">Simülasyon</button>
+                    <button onclick="setGlobalStudyMode('practice')" id="mode-practice" class="px-2 sm:px-3 py-1.5 rounded-lg transition-all text-slate-400 hover:text-white">Çözüm Odaklı</button>
                 </div>
             </div>
         </div>
@@ -509,7 +509,7 @@
 
     <div id="toast-container" class="fixed top-20 right-4 z-50 pointer-events-none flex flex-col space-y-2"></div>
 
-    <main class="flex-grow max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <main class="flex-grow max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-6">
         
         <!-- ================= TAB 1: DASHBOARD ================= -->
         <div id="tab-dashboard" class="tab-content space-y-6">
@@ -3848,48 +3848,45 @@
                 }
             } catch(e) {}
 
-            try {
-                const optionsGrid = document.getElementById('engine-options-grid');
-                if (optionsGrid) optionsGrid.innerHTML = '';
-
-                const explanationContainer = document.getElementById('explanation-container');
-                if (explanationContainer) explanationContainer.classList.add('hidden');
-                var sl = document.getElementById('study-link-container');
-                if (sl) sl.classList.add('hidden');
-            } catch(e) {}
+            var optionsGrid = document.getElementById('engine-options-grid');
+            if (optionsGrid) optionsGrid.innerHTML = '';
+            var explanationContainer = document.getElementById('explanation-container');
+            if (explanationContainer) explanationContainer.classList.add('hidden');
+            var sl = document.getElementById('study-link-container');
+            if (sl) sl.classList.add('hidden');
 
             q.a.forEach((option, idx) => {
-                const btn = document.createElement('button');
-                btn.className = `btn-option w-full p-4 rounded-2xl text-left font-semibold flex items-start text-xs sm:text-sm`;
+                var btn = document.createElement('button');
+                btn.className = 'btn-option w-full p-4 rounded-2xl text-left font-semibold flex items-start text-xs sm:text-sm';
                 
-                const isSelected = selectedAnswers[currentQuestionIndex] === idx;
+                var isSelected = selectedAnswers[currentQuestionIndex] === idx;
                 if (isSelected) {
                     btn.classList.add('selected');
                 }
 
                 if (studyMode === 'practice' && selectedAnswers[currentQuestionIndex] !== undefined) {
                     if (idx === q.c) {
-                        btn.className = `btn-option w-full p-4 rounded-2xl text-left font-semibold flex items-start text-xs sm:text-sm correct-flash text-white`;
+                        btn.className = 'btn-option w-full p-4 rounded-2xl text-left font-semibold flex items-start text-xs sm:text-sm correct-flash text-white';
                     } else if (isSelected) {
-                        btn.className = `btn-option w-full p-4 rounded-2xl text-left font-semibold flex items-start text-xs sm:text-sm wrong-flash text-white`;
+                        btn.className = 'btn-option w-full p-4 rounded-2xl text-left font-semibold flex items-start text-xs sm:text-sm wrong-flash text-white';
                     }
-                    explanationContainer.classList.remove('hidden');
-                    document.getElementById('explanation-text').innerText = q.explanation;
+                    if (explanationContainer) explanationContainer.classList.remove('hidden');
+                    var expEl = document.getElementById('explanation-text');
+                    if (expEl) expEl.innerText = q.explanation;
                 }
 
-                btn.innerHTML = `
-                    <span class="mr-3 font-black text-brand-300 bg-brand-500/20 w-6 h-6 rounded-lg flex items-center justify-center text-[10px] flex-shrink-0 ${isSelected ? 'text-slate-900 bg-brand-400' : ''}">${String.fromCharCode(65 + idx)}</span>
-                    <span class="flex-grow">${option}</span>
-                `;
+                btn.innerHTML = '<span class="mr-3 font-black text-brand-300 bg-brand-500/20 w-6 h-6 rounded-lg flex items-center justify-center text-[10px] flex-shrink-0 ' + (isSelected ? 'text-slate-900 bg-brand-400' : '') + '">' + String.fromCharCode(65 + idx) + '</span><span class="flex-grow">' + option + '</span>';
 
-                btn.onclick = () => {
-                    if (studyMode === 'practice' && selectedAnswers[currentQuestionIndex] !== undefined) {
-                        return; 
-                    }
-                    selectQuizAnswer(idx);
-                };
+                btn.onclick = (function(i) {
+                    return function() {
+                        if (studyMode === 'practice' && selectedAnswers[currentQuestionIndex] !== undefined) {
+                            return;
+                        }
+                        selectQuizAnswer(i);
+                    };
+                })(idx);
 
-                optionsGrid.appendChild(btn);
+                if (optionsGrid) optionsGrid.appendChild(btn);
             });
 
             document.getElementById('engine-prev-btn').disabled = currentQuestionIndex === 0;
