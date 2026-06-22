@@ -2963,8 +2963,13 @@
         function initVoices() {
             if (!('speechSynthesis' in window)) return;
 
-            function loadVoices() {
+            var voiceLoaded = false;
+
+            function processVoices() {
+                if (voiceLoaded) return;
                 var voices = window.speechSynthesis.getVoices();
+                if (!voices || voices.length === 0) return;
+                voiceLoaded = true;
                 try {
                     var savedVoice = localStorage.getItem('trk102_voice');
                     if (savedVoice) {
@@ -2977,37 +2982,57 @@
                 populateVoiceSelector();
             }
 
-            loadVoices();
+            // Immediate attempt
+            processVoices();
 
-            // Retry if voices not loaded yet (Chrome etc)
+            // Retry with increasing delays (Samsung/mobile need more time)
             var retries = 0;
             var interval = setInterval(function() {
                 retries++;
-                var v = window.speechSynthesis.getVoices();
-                if (v.length > 0 || retries > 10) {
-                    clearInterval(interval);
-                    if (v.length > 0) loadVoices();
-                }
-            }, 500);
+                processVoices();
+                if (voiceLoaded || retries > 30) clearInterval(interval);
+            }, 300);
 
+            // onvoiceschanged
             window.speechSynthesis.onvoiceschanged = function() {
-                var v = window.speechSynthesis.getVoices();
-                try {
-                    var saved = localStorage.getItem('trk102_voice');
-                    if (saved) {
-                        for (var i = 0; i < v.length; i++) { if (v[i].name === saved) { selectedVoice = v[i]; break; } }
-                    }
-                } catch(e) {}
-                if (!selectedVoice && v.length > 0) pickTurkishMaleVoice(v);
-                populateVoiceSelector();
+                processVoices();
             };
+
+            // Samsung Internet / mobile fallback: retry on focus
+            document.addEventListener('visibilitychange', function() {
+                if (!document.hidden && !voiceLoaded) processVoices();
+            });
+        }
+
+        function isTurkishByLang(v) {
+            if (!v || !v.lang) return false;
+            var l = v.lang.toLowerCase().replace('_', '-');
+            return l.indexOf('tr') === 0 || l.indexOf('tur') === 0;
+        }
+
+        function isTurkishByName(v) {
+            if (!v || !v.name) return false;
+            var n = v.name.toLowerCase();
+            var trNames = ['tolga', 'emel', 'ahmet', 'mehmet', 'murat', 'ali', 'asya', 'zeynep',
+                'derya', 'elif', 'esra', 'burak', 'kemal', 'canan', 'gonca', 'umut', 'mustafa',
+                'turkish', 'türkçe', 'türk', 'turkiye', 'istanbul', 'ankar',
+                'turkce', 'trtr', 'tr-tr', 'neural', 'samsung türk', 'samsung turk',
+                'google türk', 'google turk', 'tr temel', 'temel tr'];
+            for (var i = 0; i < trNames.length; i++) {
+                if (n.indexOf(trNames[i]) !== -1) return true;
+            }
+            return false;
         }
 
         function pickTurkishMaleVoice(voices) {
-            var maleNames = ['david', 'mark', 'ahmet', 'murat', 'mehmet', 'ali', 'turkish male', 'turkish tr male'];
+            var maleNames = ['david', 'mark', 'ahmet', 'murat', 'mehmet', 'ali', 'tolga',
+                'turkish male', 'turkish tr male', 'türkçe erkek', 'erkek ses',
+                'samsung erkek', 'samsung male', 'google male',
+                'tr-tr-male', 'tr-tr-neural-male'];
+            // First pass: lang starts with tr + male name
             for (var i = 0; i < voices.length; i++) {
                 var n = voices[i].name.toLowerCase();
-                if (voices[i].lang && voices[i].lang.startsWith('tr')) {
+                if (isTurkishByLang(voices[i])) {
                     for (var j = 0; j < maleNames.length; j++) {
                         if (n.indexOf(maleNames[j]) !== -1) {
                             selectedVoice = voices[i];
@@ -3016,12 +3041,21 @@
                     }
                 }
             }
+            // Second pass: any voice with tr lang (male or female)
             for (var i = 0; i < voices.length; i++) {
-                if (voices[i].lang && voices[i].lang.startsWith('tr')) {
+                if (isTurkishByLang(voices[i])) {
                     selectedVoice = voices[i];
                     return;
                 }
             }
+            // Third pass: name contains Turkish hints
+            for (var i = 0; i < voices.length; i++) {
+                if (isTurkishByName(voices[i])) {
+                    selectedVoice = voices[i];
+                    return;
+                }
+            }
+            // Last resort
             if (voices.length > 0) selectedVoice = voices[0];
         }
 
@@ -3464,18 +3498,74 @@
                 n = n.toLowerCase();
                 var maleWords = ['david', 'mark', 'ahmet', 'murat', 'mehmet', 'ali', 'tolga', 'male', 'erkek', 'turkish male', 'guy', 'daniel', 'paul', 'james', 'george', 'mike', 'john', 'robert', 'richard', 'matthew', 'steve', 'tom', 'alex', 'peter', 'william', 'joseph', 'david', 'sam', 'ben', 'chris', 'ryan', 'jack', 'harry', 'fred', 'karl', 'otto', 'hans', 'ivan', 'boris', 'viktor'];
                 var femaleWords = ['zira', 'susan', 'heera', 'hazel', 'emel', 'asya', 'diya', 'female', 'kadın', 'woman', 'girl', 'linda', 'catherine', 'jennifer', 'lisa', 'mary', 'patricia', 'barbara', 'elizabeth', 'sandra', 'donna', 'helen', 'amanda', 'jessica', 'sarah', 'emma', 'olivia', 'ava', 'isabella', 'mia', 'charlotte', 'amelia', 'hannah', 'karen', 'nancy', 'betty', 'dorothy', 'ayşe', 'fatma', 'hatice', 'zehra', 'elif', 'esra', 'nur', 'derya', 'ayla', 'berna', 'cansu', 'damla', 'eda', 'gamze', 'hande', 'ışıl', 'jale', 'kübra', 'leyla', 'meltem', 'nazlı', 'pınar', 'sevgi', 'tuğba', 'zeynep', 'rachel', 'lauren', 'stacy', 'alice', 'eva', 'anna', 'maria', 'victoria', 'elena', 'sofia', 'nina', 'kristin', 'katya', 'tanya', 'olga', 'irina', 'natasha', 'svetlana', 'ludmila', 'aisulu', 'aygul', 'zhibek', 'nazgul', 'tomris'];
-                for (var k = 0; k < maleWords.length; k++) { if (n.indexOf(maleWords[k]) !== -1) return '<span class=\"inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-500/30 text-blue-300 text-[8px] font-black\">♂</span>'; }
-                for (var k = 0; k < femaleWords.length; k++) { if (n.indexOf(femaleWords[k]) !== -1) return '<span class=\"inline-flex items-center justify-center w-4 h-4 rounded-full bg-pink-500/30 text-pink-300 text-[8px] font-black\">♀</span>'; }
-                return '<span class=\"inline-flex items-center justify-center w-4 h-4 rounded-full bg-slate-600/40 text-slate-400 text-[8px] font-black\">~</span>';
+                for (var k = 0; k < maleWords.length; k++) { if (n.indexOf(maleWords[k]) !== -1) return '<span class=\"inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-500/30 text-blue-300 text-[8px] font-black shrink-0\">♂</span>'; }
+                for (var k = 0; k < femaleWords.length; k++) { if (n.indexOf(femaleWords[k]) !== -1) return '<span class=\"inline-flex items-center justify-center w-4 h-4 rounded-full bg-pink-500/30 text-pink-300 text-[8px] font-black shrink-0\">♀</span>'; }
+                return '<span class=\"inline-flex items-center justify-center w-4 h-4 rounded-full bg-slate-600/40 text-slate-400 text-[8px] font-black shrink-0\">~</span>';
+            }
+
+            function flagEmoji(lang) {
+                if (!lang) return '🌐';
+                var region = '';
+                var parts = lang.split(/[-_]/);
+                if (parts.length >= 2) region = parts[parts.length - 1].toUpperCase();
+                if (region.length !== 2) {
+                    var langLower = lang.toLowerCase();
+                    if (langLower.indexOf('tr') === 0) region = 'TR';
+                    else if (langLower.indexOf('en') === 0) region = 'GB';
+                    else if (langLower.indexOf('de') === 0) region = 'DE';
+                    else if (langLower.indexOf('fr') === 0) region = 'FR';
+                    else return '🌐';
+                }
+                // Static flag map for reliable rendering across devices
+                var flagMap = {
+                    'TR': '🇹🇷', 'US': '🇺🇸', 'GB': '🇬🇧', 'DE': '🇩🇪', 'FR': '🇫🇷',
+                    'ES': '🇪🇸', 'IT': '🇮🇹', 'PT': '🇵🇹', 'BR': '🇧🇷', 'RU': '🇷🇺',
+                    'JP': '🇯🇵', 'KR': '🇰🇷', 'CN': '🇨🇳', 'AR': '🇸🇦', 'NL': '🇳🇱',
+                    'SE': '🇸🇪', 'NO': '🇳🇴', 'DK': '🇩🇰', 'FI': '🇫🇮', 'PL': '🇵🇱',
+                    'CZ': '🇨🇿', 'MX': '🇲🇽', 'CA': '🇨🇦', 'AU': '🇦🇺', 'IN': '🇮🇳',
+                    'TH': '🇹🇭', 'VN': '🇻🇳', 'ID': '🇮🇩', 'MY': '🇲🇾', 'RO': '🇷🇴',
+                    'HU': '🇭🇺', 'GR': '🇬🇷', 'IL': '🇮🇱', 'UA': '🇺🇦', 'BG': '🇧🇬',
+                    'HR': '🇭🇷', 'SK': '🇸🇰', 'SI': '🇸🇮', 'LT': '🇱🇹', 'LV': '🇱🇻',
+                    'EE': '🇪🇪', 'RS': '🇷🇸', 'MK': '🇲🇰', 'AL': '🇦🇱', 'BA': '🇧🇦',
+                    'AZ': '🇦🇿', 'KZ': '🇰🇿', 'UZ': '🇺🇿', 'GE': '🇬🇪', 'AM': '🇦🇲',
+                    'MN': '🇲🇳', 'NP': '🇳🇵', 'LK': '🇱🇰', 'KH': '🇰🇭', 'LA': '🇱🇦',
+                    'MM': '🇲🇲', 'ZA': '🇿🇦', 'KE': '🇰🇪', 'ET': '🇪🇹', 'NG': '🇳🇬',
+                    'EG': '🇪🇬', 'MA': '🇲🇦', 'DZ': '🇩🇿', 'TN': '🇹🇳', 'PH': '🇵🇭',
+                    'PK': '🇵🇰', 'BD': '🇧🇩', 'HK': '🇭🇰', 'TW': '🇹🇼', 'SG': '🇸🇬',
+                    'NZ': '🇳🇿', 'IE': '🇮🇪', 'CH': '🇨🇭', 'AT': '🇦🇹', 'BE': '🇧🇪'
+                };
+                return flagMap[region] || '🌐';
+            }
+
+            function langLabel(lang) {
+                if (!lang) return '';
+                var labels = {
+                    'tr-TR': 'Türkçe', 'en-US': 'English (US)', 'en-GB': 'English (UK)',
+                    'de-DE': 'Deutsch', 'fr-FR': 'Français', 'es-ES': 'Español',
+                    'it-IT': 'Italiano', 'pt-BR': 'Português', 'ru-RU': 'Русский',
+                    'ja-JP': '日本語', 'ko-KR': '한국어', 'zh-CN': '中文',
+                    'ar-SA': 'العربية', 'nl-NL': 'Nederlands', 'sv-SE': 'Svenska',
+                    'no-NO': 'Norsk', 'da-DK': 'Dansk', 'fi-FI': 'Suomi',
+                    'pl-PL': 'Polski', 'cs-CZ': 'Čeština', 'pt-PT': 'Português (PT)',
+                    'es-MX': 'Español (MX)', 'fr-CA': 'Français (CA)',
+                    'en-AU': 'English (AU)', 'en-IN': 'English (IN)',
+                    'hi-IN': 'हिन्दी', 'th-TH': 'ไทย', 'vi-VN': 'Tiếng Việt',
+                    'id-ID': 'Bahasa', 'ms-MY': 'Bahasa Melayu',
+                    'ro-RO': 'Română', 'hu-HU': 'Magyar', 'el-GR': 'Ελληνικά',
+                    'he-IL': 'עברית', 'uk-UA': 'Українська', 'bg-BG': 'Български',
+                    'hr-HR': 'Hrvatski', 'sk-SK': 'Slovenčina', 'sl-SI': 'Slovenščina',
+                    'lt-LT': 'Lietuvių', 'lv-LV': 'Latviešu', 'et-EE': 'Eesti',
+                    'sr-RS': 'Српски', 'mk-MK': 'Македонски', 'sq-AL': 'Shqip',
+                    'az-AZ': 'Azərbaycan', 'kk-KZ': 'Қазақ', 'ka-GE': 'ქართული',
+                    'hy-AM': 'Հայերեն', 'af-ZA': 'Afrikaans', 'sw-KE': 'Kiswahili',
+                    'am-ET': 'አማርኛ', 'zu-ZA': 'isiZulu'
+                };
+                return labels[lang] || lang;
             }
 
             function isTurkishVoice(v) {
-                if (v.lang && v.lang.startsWith('tr')) return true;
-                var n = v.name.toLowerCase();
-                var turkishHints = ['tolga', 'ahmet', 'emel', 'asya', 'turkish', 'türkçe', 'türk', ' tr-tr', ' tr tr', 'tr-', 'neural', 'turkce', 'turkiye', 'istanbul', 'ankar', 'mehmet', 'zeynep', 'derya', 'elif', 'esra', 'burak', 'kemal', 'canan', 'gonca', 'umut', 'mustafa', 'turgay', 'melih', 'selin', 'ipek', 'çağla', 'öykü', 'bilge', 'emelneural', 'trtemel'];
-                for (var h = 0; h < turkishHints.length; h++) {
-                    if (n.indexOf(turkishHints[h]) !== -1) return true;
-                }
+                if (isTurkishByLang(v)) return true;
+                if (isTurkishByName(v)) return true;
                 return false;
             }
 
@@ -3487,26 +3577,41 @@
                 else otherVoices.push(voices[i]);
             }
 
-            // Sort Turkish: male first, then female, then alphabetical
+            // Sort Turkish: Tolga/Emel first, then male, then female, then alpha
+            var trPriority = ['tolga', 'emel'];
             turkishVoices.sort(function(a, b) {
-                var aLow = a.name.toLowerCase();
-                var bLow = b.name.toLowerCase();
-                var maleWords = ['tolga', 'ahmet', 'mehmet', 'murat', 'burak', 'kemal', 'umut', 'mustafa'];
-                var femaleWords = ['emel', 'asya', 'diya', 'zeynep', 'elif', 'esra', 'derya', 'canan', 'gonca'];
-                var aMale = false, bMale = false, aFemale = false, bFemale = false;
-                for (var k = 0; k < maleWords.length; k++) { if (aLow.indexOf(maleWords[k]) !== -1) aMale = true; if (bLow.indexOf(maleWords[k]) !== -1) bMale = true; }
-                for (var k = 0; k < femaleWords.length; k++) { if (aLow.indexOf(femaleWords[k]) !== -1) aFemale = true; if (bLow.indexOf(femaleWords[k]) !== -1) bFemale = true; }
-                if (aMale && (bFemale || (!bMale && !bFemale))) return -1;
-                if (bMale && (aFemale || (!aMale && !aFemale))) return 1;
-                if (aFemale && !bFemale && !bMale) return -1;
-                if (bFemale && !aFemale && !aMale) return 1;
+                var aLow = a.name.toLowerCase(), bLow = b.name.toLowerCase();
+                for (var p = 0; p < trPriority.length; p++) {
+                    var aP = aLow.indexOf(trPriority[p]) !== -1;
+                    var bP = bLow.indexOf(trPriority[p]) !== -1;
+                    if (aP && !bP) return -1;
+                    if (bP && !aP) return 1;
+                }
+                var mWords = ['tolga', 'ahmet', 'mehmet', 'murat', 'burak', 'kemal', 'umut', 'mustafa'];
+                var fWords = ['emel', 'asya', 'diya', 'zeynep', 'elif', 'esra', 'derya', 'canan', 'gonca'];
+                var aM = false, bM = false, aF = false, bF = false;
+                for (var k = 0; k < mWords.length; k++) { if (aLow.indexOf(mWords[k]) !== -1) aM = true; if (bLow.indexOf(mWords[k]) !== -1) bM = true; }
+                for (var k = 0; k < fWords.length; k++) { if (aLow.indexOf(fWords[k]) !== -1) aF = true; if (bLow.indexOf(fWords[k]) !== -1) bF = true; }
+                if (aM && (bF || (!bM && !bF))) return -1;
+                if (bM && (aF || (!aM && !aF))) return 1;
+                if (aF && !bF && !bM) return -1;
+                if (bF && !aF && !aM) return 1;
                 return aLow.localeCompare(bLow);
             });
 
-            function addHeader(text) {
+            // Sort other voices by language code
+            otherVoices.sort(function(a, b) {
+                var al = a.lang || '', bl = b.lang || '';
+                if (al < bl) return -1;
+                if (al > bl) return 1;
+                return (a.name || '').localeCompare(b.name || '');
+            });
+
+            function addHeader(text, flag) {
                 var h = document.createElement('div');
-                h.className = 'px-3 py-1.5 text-[8px] font-black text-slate-500 uppercase tracking-wider bg-slate-900/50';
-                h.innerText = text;
+                h.className = 'px-3 py-1.5 text-[8px] font-black text-slate-500 uppercase tracking-wider bg-slate-900/50 flex items-center gap-1.5';
+                if (flag) { var e = document.createElement('span'); e.textContent = flag; h.appendChild(e); }
+                var t = document.createElement('span'); t.innerText = text; h.appendChild(t);
                 list.appendChild(h);
             }
 
@@ -3514,9 +3619,10 @@
                 var item = document.createElement('div');
                 var name = v.name;
                 var selected = selectedVoice && selectedVoice.name === v.name ? 'bg-brand-500/20 border-brand-500/30' : '';
-                var langTag = v.lang ? ' <span class=\"text-[7px] text-slate-600 ml-1\">' + v.lang + '</span>' : '';
+                var lang = v.lang || '';
+                var flag = flagEmoji(lang);
                 item.className = 'px-3 py-2 border-b border-slate-700/50 hover:bg-slate-700/50 cursor-pointer flex items-center gap-2 transition-all ' + selected;
-                item.innerHTML = '<span class="shrink-0">' + genderBadge(name) + '</span><span class="text-xs font-semibold text-slate-200 truncate">' + name + '</span>' + langTag;
+                item.innerHTML = '<span class="text-base shrink-0 w-5 text-center">' + flag + '</span>' + genderBadge(name) + '<span class="text-xs font-semibold text-slate-200 truncate flex-1">' + name + '</span><span class="text-[7px] text-slate-500 shrink-0 font-mono">' + lang + '</span>';
                 item.onclick = function() {
                     selectedVoice = v;
                     try { localStorage.setItem('trk102_voice', v.name); } catch(e) {}
@@ -3528,12 +3634,20 @@
             }
 
             if (turkishVoices.length > 0) {
-                addHeader('🇹🇷 Türkçe Sesler (' + turkishVoices.length + ')');
+                addHeader('Türkçe Sesler (' + turkishVoices.length + ')', '🇹🇷');
                 for (var i = 0; i < turkishVoices.length; i++) addVoice(turkishVoices[i]);
             }
             if (otherVoices.length > 0) {
-                addHeader('🔤 Diğer Sesler (' + otherVoices.length + ')');
-                for (var i = 0; i < otherVoices.length; i++) addVoice(otherVoices[i]);
+                var currentLang = '';
+                for (var i = 0; i < otherVoices.length; i++) {
+                    var v = otherVoices[i];
+                    var vl = v.lang || '';
+                    if (vl !== currentLang) {
+                        currentLang = vl;
+                        addHeader(langLabel(vl) + ' (' + vl + ')', flagEmoji(vl));
+                    }
+                    addVoice(v);
+                }
             }
 
             if (voices.length === 0) {
