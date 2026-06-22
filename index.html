@@ -3390,8 +3390,13 @@
                 }
             };
             activeUtterance.onerror = function(e) {
-                var bar = document.getElementById('speech-control-bar');
-                if (bar) bar.classList.add('hidden');
+                // Don't hide bar when cancelled intentionally (pause fallback or re-speak)
+                if (e.error === 'canceled' && isPausedManually) {
+                    // keep bar visible — user can still resume
+                } else {
+                    var bar = document.getElementById('speech-control-bar');
+                    if (bar) bar.classList.add('hidden');
+                }
                 // Chrome Android: try once more with lang-only (no voice assignment)
                 if (!selectedVoice && e.error !== 'canceled') {
                     var fallback = new SpeechSynthesisUtterance(text);
@@ -3424,45 +3429,44 @@
 
         function resumeSpeech() {
             if (!('speechSynthesis' in window)) return;
+            // Chrome Android: pause() almost never works, so check both paused and speaking
             if (window.speechSynthesis.paused) {
                 try { window.speechSynthesis.resume(); } catch(e) {}
                 isPausedManually = false;
+                // Some browsers need a small delay — verify resume actually worked
                 setTimeout(function() {
-                    if (window.speechSynthesis.paused) {
+                    if (window.speechSynthesis.paused && lastSpokenText) {
+                        // resume failed (common on Chrome Android) — re-speak
                         window.speechSynthesis.cancel();
-                        if (lastSpokenText) {
-                            activeUtterance = new SpeechSynthesisUtterance(lastSpokenText);
-                            activeUtterance.lang = selectedVoice && selectedVoice.lang ? selectedVoice.lang : 'tr-TR';
-                            activeUtterance.rate = selectedVoice && selectedVoice.lang && selectedVoice.lang.startsWith('tr') ? 1.15 : 1.0;
-                            if (selectedVoice) activeUtterance.voice = selectedVoice;
-                            activeUtterance.onstart = function() {
-                                document.getElementById('speech-control-bar').classList.remove('hidden');
-                            };
-                            activeUtterance.onend = function() {
-                                document.getElementById('speech-control-bar').classList.add('hidden');
-                            };
-                            activeUtterance.onerror = function() {
-                                document.getElementById('speech-control-bar').classList.add('hidden');
-                            };
-                            window.speechSynthesis.speak(activeUtterance);
-                        }
+                        setTimeout(function() {
+                            if (!lastSpokenText) return;
+                            var tempTts = ttsEnabled;
+                            ttsEnabled = true;
+                            speakText(lastSpokenText);
+                            ttsEnabled = tempTts;
+                        }, 100);
                     }
-                }, 200);
-            } else if (!window.speechSynthesis.speaking && lastSpokenText) {
-                window.speechSynthesis.cancel();
-                var tempTts = ttsEnabled;
-                ttsEnabled = true;
-                speakText(lastSpokenText);
-                ttsEnabled = tempTts;
+                }, 300);
+            } else if (lastSpokenText) {
+                // speech was cancelled, ended, or pause didn't work — re-speak
+                isPausedManually = false;
+                setTimeout(function() {
+                    if (!lastSpokenText) return;
+                    var tempTts = ttsEnabled;
+                    ttsEnabled = true;
+                    speakText(lastSpokenText);
+                    ttsEnabled = tempTts;
+                }, 100);
             }
         }
 
         function stopSpeech() {
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
-                var bar = document.getElementById('speech-control-bar');
-                if (bar) bar.classList.add('hidden');
             }
+            isPausedManually = false;
+            var bar = document.getElementById('speech-control-bar');
+            if (bar) bar.classList.add('hidden');
             if (examTimerInterval) { clearInterval(examTimerInterval); examTimerInterval = null; }
         }
 
@@ -4371,101 +4375,109 @@
             dibilgisi: "Herkez bu sınava çok iyi hazırlanmış.\nYanlışlıkla benim kalemimide aldın.\nYemekden sonra biraz dinlenmeliyim.\nSende mi geliyorsun bizirada bekle.\nBunuda yapabildiysen herşeyi yapabilirsin.\nİstanbul'da 3 gün kaldıktan sonra Antalyaya geçtik."
         };
 
+        function makeRegex(p) {
+            // Create a fresh copy of the regex to avoid lastIndex corruption
+            return new RegExp(p.source, p.flags);
+        }
+
         const grammarRules = [
             {
-                pattern: /Ahmet\s+bey/g,
+                pattern: /ahmet\s+bey/gi,
                 replace: "Ahmet Bey",
                 explanation: "Özel isimlerden sonra gelen saygı sözleri ve unvanlar (Bey, Hanım) büyük harfle başlamalıdır."
             },
             {
-                pattern: /Kaymakam\s+bey/g,
+                pattern: /kaymakam\s+bey/gi,
                 replace: "Kaymakam Bey",
                 explanation: "Özel isim yerine kullanılan unvanlar da (Kaymakam Bey) saygı bildirdiği için büyük harfle yazılmalıdır."
             },
             {
-                pattern: /Ahmet'ler/g,
-                replace: "Ahmetler",
+                pattern: /[\wöçşığüÖÇŞİĞÜ]+'ler\b/gi,
+                replace: function(m) { return m.replace(/'/g, ''); },
                 explanation: "Özel isimlere gelen çoğul eki (-ler, -lar) kesme işaretiyle asla ayrılmaz."
             },
             {
-                pattern: /otuzaltı/g,
-                replace: "otuz altı",
+                pattern: /otuz\s*altı|otuz\s*bir|otuz\s*iki|otuz\s*üç|otuz\s*dört|otuz\s*beş|otuz\s*altı|otuz\s*yedi|otuz\s*sekiz|otuz\s*dokuz/gi,
+                replace: function(m) { return m.replace(/\s+/g, ' ').replace(/(otuz|kırk|elli|altmış|yetmiş|yirmi|on)\s+/gi, '$1 ').trim(); },
                 explanation: "Sayılar metin içerisinde her zaman ayrı yazılmalıdır."
             },
             {
-                pattern: /oysa\s+ki/g,
-                replace: "oysaki",
+                pattern: /(oysa|halbuki|mademki|sanki|illaki|meğerki|çünkü)\s+ki\b/gi,
+                replace: function(m) { return m.replace(/\s+ki\b/i, 'ki'); },
                 explanation: "Sanki, illaki, mademki, belki, oysaki, halbuki, çünkü, meğerki (SOMBAHÇEM) bağlaçlarındaki -ki bitişik yazılır."
             },
             {
-                pattern: /herşey/g,
+                pattern: /her\s*şey/gi,
                 replace: "her şey",
                 explanation: "Türkçede 'şey' sözcüğü her zaman ayrı yazılır."
             },
             {
-                pattern: /14:00\s+da/g,
-                replace: "14.00'te",
-                explanation: "Saatlerin yazımında araya nokta konur. Sert sessizle biten sayılardan sonra gelen ek sertleşir ('te)."
+                pattern: /\d{1,2}:\d{2}\s*'?(?:da|de)\b/gi,
+                replace: function(m) {
+                    var saat = m.replace(/[^\d:]/g, '');
+                    var parts = saat.split(':');
+                    var s = parts[0] + '.' + parts[1];
+                    var sn = parseInt(parts[0].slice(-1));
+                    return (sn === 2 || sn === 3 || sn === 4 || sn === 5 || sn === 0) ? s + "'te" : s + "'da";
+                },
+                explanation: "Saatlerin yazımında araya nokta konur. Saatten sonra gelen ek sertleşebilir."
             },
             {
-                pattern: /Ne\s+sen\s+onu\s+ne\s+o\s+seni\s+anlıyor/g,
-                replace: "Ne sen onu anlıyorsun ne o seni anlıyor",
-                explanation: "Özne-yüklem uyumsuzluğundan kaynaklanan anlatım bozukluğu. 'Sen' öznesi 'anlıyor' yüklemine bağlanamaz."
-            },
-            {
-                pattern: /Tahmin\s+ediyorum\s+ki\s+.*kesinlikle/g,
-                replace: "Tahmin ediyorum ki...",
+                pattern: /tahmin\s+ediyorum\s+ki\s+.{0,50}kesinlikle/gi,
+                replace: function(m) { return m.replace(/\s+kesinlikle/gi, ''); },
                 explanation: "Tahmin (olasılık) ile 'kesinlikle' (kesinlik) ifadelerinin aynı cümlede olması anlatım bozukluğudur."
             },
             {
-                pattern: /herkez/g,
+                pattern: /\bherkez\b/gi,
                 replace: "herkes",
-                explanation: "'Herkes' sözcüğü 'herkez' şeklinde yazılamaz, doğrusu 'herkes'tir. 'Kimesne' sözcüğünün birleşmesiyle oluşmuştur."
+                explanation: "'Herkes' sözcüğü 'herkez' şeklinde yazılamaz, doğrusu 'herkes'tir."
             },
             {
-                pattern: /yanlışlıkla/g,
-                replace: "yanlışlıkla",
-                explanation: "'Yanlış' sözcüğü 'yalnış' değildir. Kökeni 'yanıl-' fiilidir. 'Yanlış' doğru yazılıştır. Aynı şekilde 'yanlışlıkla' şeklinde yazılır."
+                pattern: /\b(yemekden|içindeki|kitabdan|gözlemlediğimde|yapıyada|azalmakda)\b/gi,
+                replace: function(m) {
+                    var map = { yemekden: 'yemekten', içindeki: 'içindeki', kitabdan: 'kitaptan', gözlemlediğimde: 'gözlemlediğimde', yapıyada: 'yapıya da', azalmakda: 'azalmakta' };
+                    return map[m.toLowerCase()] || m;
+                },
+                explanation: "Sert ünsüz uyumu (Fıstıkçı Şahap): sert ünsüzle biten sözcüklere gelen -da/-de eki -ta/-te olur."
             },
             {
-                pattern: /kalemimide/g,
-                replace: "kalemimi de",
-                explanation: "'Kalemimi de' ifadesindeki 'de' bağlaçtır ve ayrı yazılmalıdır. 'Benim kalemimi de aldın' şeklinde doğru kullanım sağlanır."
+                pattern: /\b(yüzyüze|başbaşa|dizdize|gözgöze|elele|yanyana|karşıkarşıya|başabaş)\b/gi,
+                replace: function(m) {
+                    var map = { yüzyüze: 'yüz yüze', başbaşa: 'baş başa', dizdize: 'diz dize', gözgöze: 'göz göze', elele: 'el ele', yanyana: 'yan yana', karşıkarşıya: 'karşı karşıya', başabaş: 'baş baş' };
+                    return map[m.toLowerCase()] || m;
+                },
+                explanation: "İkilemeler ayrı yazılır: 'yüz yüze', 'baş başa', 'diz dize', 'göz göze', 'el ele'."
             },
             {
-                pattern: /yemekden/g,
-                replace: "yemekten",
-                explanation: "Sert ünsüzle (k, ç, t, ş, p, h) biten sözcüklere gelen ekler sertleşir: yemek + den → yemekten. Fıstıkçı Şahap kuralı."
+                pattern: /\b(Antalyaya|Ankaraya|İstanbula|İzmire|Bursaya|Bileciğe)\b/gi,
+                replace: function(m) {
+                    var map = { antalyaya: "Antalya'ya", ankaraya: "Ankara'ya", istanbula: "İstanbul'a", izmire: "İzmir'e", bursaya: "Bursa'ya", bileciğe: "Bilecik'e" };
+                    return map[m.toLowerCase()] || m;
+                },
+                explanation: "Özel isimlere gelen yönelme durum eki kesme işaretiyle ayrılır."
             },
             {
-                pattern: /bizirada/g,
-                replace: "bizleri de",
-                explanation: "Çoğul eki almış zamirlere gelen 'de' bağlacı ayrı yazılır: 'bizleri de', 'seni de', 'onları da'."
+                pattern: /\b(birşey|birşeyler|herşey|herşeyi)\b/gi,
+                replace: function(m) {
+                    var map = { birşey: 'bir şey', birşeyler: 'bir şeyler', herşey: 'her şey', herşeyi: 'her şeyi' };
+                    return map[m.toLowerCase()] || m;
+                },
+                explanation: "'Şey' sözcüğü her zaman ayrı yazılır: 'bir şey', 'her şey'."
             },
             {
-                pattern: /Bunuda/g,
-                replace: "Bunu da",
-                explanation: "'Bunu' sözcüğünden sonra gelen 'da/De' bağlacı ayrı yazılır: 'Bunu da yapabildiysen'."
+                pattern: /\b(kalemimide|bizirada|Bunuda|bunuda|sende|sizde|bizde)\b(?!\s+mi)/gi,
+                replace: function(m) {
+                    var map = { kalemimide: 'kalemimi de', bizirada: 'bizleri de', bunuda: 'bunu da', sende: 'sen de', sizde: 'siz de', bizde: 'biz de' };
+                    return map[m.toLowerCase()] || m;
+                },
+                explanation: "'De/da' bağlacı ayrı yazılır: 'ben de', 'sen de', 'kalemimi de', 'bunu da'."
             },
             {
-                pattern: /yüzyüze/g,
-                replace: "yüz yüze",
-                explanation: "İkilemeler ayrı yazılır: 'yüz yüze', 'baş başa', 'diz dize', 'göz göze', 'el ele'. İkilemeyi oluşturan kelimeler arasına boşluk konur."
-            },
-            {
-                pattern: /azalmakda/g,
-                replace: "azalmakta",
-                explanation: "Sert ünsüz uyumu: 'k' sert ünsüzüyle biten 'azalmak' fiiline gelen 'da' eki 'ta' şeklinde sertleşir: 'azalmakta'."
-            },
-            {
-                pattern: /toplumsal yapıyada/g,
-                replace: "toplumsal yapıya da",
-                explanation: "'Yapıya' sözcüğüne gelen 'da' bağlacı ayrı yazılır. Ayrıca 'yapıya' yönelme durum eki (-a) almıştır, bağlaç değildir."
-            },
-            {
-                pattern: /Antalyaya/g,
-                replace: "Antalya'ya",
-                explanation: "Özel isimlere gelen yönelme durum eki kesme işaretiyle ayrılır ve ünsüz yumuşamasına uğrar: Antalya'ya (Antalya + a → Antalya'ya, 'y' kaynaştırma ünsüzü)."
+                pattern: /(?:^|\s)(\w+)(?:da|de)(?:\s|$)/gi,
+                replace: function(m) {
+                    return m;
+                },
+                explanation: "'-da/-de' eki ile 'da/de' bağlacını ayırt edin. Bağlaç olan 'de/da' her zaman ayrı yazılır."
             }
         ];
 
@@ -4501,79 +4513,211 @@
             scoreBadge.classList.remove('hidden');
 
             errorsList.innerHTML = '';
-            let detectedCount = 0;
-            let totalPoints = 100;
+            var detectedCount = 0;
+            var totalPoints = 100;
+            var seenExplanations = {};
 
-            grammarRules.forEach(rule => {
-                if (rule.pattern.test(text)) {
+            grammarRules.forEach(function(rule) {
+                var re = makeRegex(rule.pattern);
+                re.lastIndex = 0;
+                if (re.test(text)) {
+                    var expl = rule.explanation;
+                    if (seenExplanations[expl]) return; // prevent duplicate same-rule hits
+                    seenExplanations[expl] = true;
+
                     detectedCount++;
                     totalPoints = Math.max(0, totalPoints - 15);
 
-                    const li = document.createElement('div');
-                    li.className = 'p-3 bg-accent-rose/10 border-l-4 border-accent-rose rounded-r-xl text-xs sm:text-sm space-y-1';
-                    li.innerHTML = `
-                        <div class="flex items-center justify-between">
-                            <span class="font-extrabold text-accent-rose">Kural İhlali</span>
-                            <span class="text-[10px] text-slate-400 font-bold">Öneri: "${rule.replace}"</span>
-                        </div>
-                        <p class="font-semibold text-slate-400">${rule.explanation}</p>
-                    `;
+                    var replaceStr = typeof rule.replace === 'function'
+                        ? '(otomatik düzeltme)'
+                        : '&ldquo;' + rule.replace.replace(/"/g, '') + '&rdquo;';
+
+                    var li = document.createElement('div');
+                    li.className = 'p-3 bg-accent-rose/10 border-l-4 border-accent-rose rounded-r-xl text-xs sm:text-sm space-y-2';
+                    li.innerHTML = '<div class="flex items-center justify-between">'
+                        + '<span class="font-extrabold text-accent-rose">Kural İhlali</span>'
+                        + '<span class="text-[10px] text-slate-400 font-bold">&Ouml;neri: ' + replaceStr + '</span>'
+                        + '</div>'
+                        + '<p class="font-semibold text-slate-400">' + expl + '</p>';
                     errorsList.appendChild(li);
                 }
             });
 
-            if (text.toLowerCase().includes("bilgilerinize arz ederim") && text.toLowerCase().includes("imza")) {
-                const imzaIndex = text.toLowerCase().indexOf("imza");
-                const adresIndex = text.toLowerCase().indexOf("adres");
-                if (adresIndex !== -1 && imzaIndex > adresIndex) {
+            // Detect "de/da" bağlacı ayrı yazım sorunları
+            var deDaRegex = /(\w+)(da|de)(?:\s|$)/gi;
+            deDaRegex.lastIndex = 0;
+            var deDaMatch;
+            var deDaFound = {};
+            while ((deDaMatch = deDaRegex.exec(text)) !== null) {
+                var word = deDaMatch[1].toLowerCase();
+                var ek = deDaMatch[2].toLowerCase();
+                // Skip short words and known exceptions
+                if (word.length < 2) continue;
+                if (['ve', 'veya', 'ile', 'bir', 'bu', 'su', 'o', 'ne', 'hem', 'ya', 'da'].indexOf(word) !== -1) continue;
+                // Check if the last letter could take this suffix
+                var lastChar = word.slice(-1);
+                var sertUnsuz = { k: 1, ç: 1, t: 1, ş: 1, p: 1, h: 1, f: 1, s: 1 };
+                // If word ends with soft consonant and gets 'da'/'de', this might be a conjunction issue
+                if (!sertUnsuz[lastChar] && word.length >= 3) {
+                    var key = word + ek;
+                    if (!deDaFound[key]) {
+                        deDaFound[key] = true;
+                        // Check if it's really a separate "de/da" conjunction written attached
+                        var bosluklu = word + ' ' + ek;
+                        // Skip if the word itself normally ends with these letters
+                        var iyelikEkleri = ['im', 'in', 'in', 'imiz', 'iniz', 'leri', 'lık', 'lik', 'lı', 'li'];
+                        var isIyelik = false;
+                        for (var ie = 0; ie < iyelikEkleri.length; ie++) {
+                            if (word.slice(-iyelikEkleri[ie].length) === iyelikEkleri[ie]) { isIyelik = true; break; }
+                        }
+                        if (isIyelik) {
+                            detectedCount++;
+                            totalPoints = Math.max(0, totalPoints - 10);
+                            var li2 = document.createElement('div');
+                            li2.className = 'p-3 bg-accent-rose/10 border-l-4 border-accent-rose rounded-r-xl text-xs sm:text-sm space-y-2';
+                            li2.innerHTML = '<div class="flex items-center justify-between">'
+                                + '<span class="font-extrabold text-accent-rose">"De/Da" Bağlaç Hatası</span>'
+                                + '<span class="text-[10px] text-slate-400 font-bold">&Ouml;neri: "' + bosluklu + '"</span>'
+                                + '</div>'
+                                + '<p class="font-semibold text-slate-400">"' + word + '" sözcüğüne eklenen "' + ek + '" ayrı bir bağlaç olabilir. "De/da" bağlacı her zaman ayrı yazılır ve kendinden önceki sözcüğün son ünlüsüne göre büyük ünlü uyumuna uyar.</p>';
+                            errorsList.appendChild(li2);
+                        }
+                    }
+                }
+                if (deDaMatch.index + deDaMatch[0].length >= text.length) break;
+            }
+
+            // Dilekçe format kontrolü
+            var lowText = text.toLowerCase();
+            if (lowText.indexOf("bilgilerinize arz ederim") !== -1 && lowText.indexOf("imza") !== -1) {
+                var imzaIdx = lowText.indexOf("imza");
+                var adresIdx = lowText.indexOf("adres");
+                if (adresIdx !== -1 && imzaIdx > adresIdx) {
                     detectedCount++;
                     totalPoints = Math.max(0, totalPoints - 10);
-                    const li = document.createElement('div');
-                    li.className = 'p-3 bg-accent-rose/10 border-l-4 border-accent-rose rounded-r-xl text-xs sm:text-sm space-y-1';
-                    li.innerHTML = `
-                        <div class="flex items-center justify-between">
-                            <span class="font-extrabold text-accent-rose">Dilekçe Format Hatası</span>
-                            <span class="text-[10px] text-slate-400 font-bold">Öneri: İmza Sağ Altta Olmalı</span>
-                        </div>
-                        <p class="font-semibold text-slate-400">Resmi dilekçelerde imza, ad ve soyad daima sağ alt köşede yer almalıdır. Sol alt tarafta adres ve ekler bulunmalıdır.</p>
-                    `;
-                    errorsList.appendChild(li);
+                    var li3 = document.createElement('div');
+                    li3.className = 'p-3 bg-accent-rose/10 border-l-4 border-accent-rose rounded-r-xl text-xs sm:text-sm space-y-2';
+                    li3.innerHTML = '<div class="flex items-center justify-between">'
+                        + '<span class="font-extrabold text-accent-rose">Dilekçe Format Hatası</span>'
+                        + '<span class="text-[10px] text-slate-400 font-bold">&Ouml;neri: İmza Sağ Altta Olmalı</span>'
+                        + '</div>'
+                        + '<p class="font-semibold text-slate-400">Resmi dilekçelerde imza, ad ve soyad daima sağ alt köşede yer almalıdır.</p>';
+                    errorsList.appendChild(li3);
                 }
             }
 
-            document.getElementById('lab-score-badge').innerText = `Puan: ${totalPoints}/100`;
+            // Genel "ki" bağlacı kontrolü
+            var kiRegex = /\b(\w+)ki\b/gi;
+            kiRegex.lastIndex = 0;
+            var kiMatch;
+            var kiFound = {};
+            var sombahcem = { sanki: 1, illaki: 1, mademki: 1, belki: 1, oysaki: 1, halbuki: 1, çünkü: 1, meğerki: 1, oysaki: 1 };
+            while ((kiMatch = kiRegex.exec(text)) !== null) {
+                var kw = kiMatch[1].toLowerCase();
+                var fullW = kiMatch[0].toLowerCase();
+                if (sombahcem[fullW]) continue; // SOMBAHÇEM kelimeleri bitişik yazılır
+                if (kw.length >= 2 && !kiFound[fullW]) {
+                    kiFound[fullW] = true;
+                    detectedCount++;
+                    totalPoints = Math.max(0, totalPoints - 10);
+                    var li4 = document.createElement('div');
+                    li4.className = 'p-3 bg-accent-rose/10 border-l-4 border-accent-rose rounded-r-xl text-xs sm:text-sm space-y-2';
+                    li4.innerHTML = '<div class="flex items-center justify-between">'
+                        + '<span class="font-extrabold text-accent-rose">"Ki" Bağlaç Hatası</span>'
+                        + '<span class="text-[10px] text-slate-400 font-bold">&Ouml;neri: "' + kw + ' ki" ayrı yazılmalı</span>'
+                        + '</div>'
+                        + '<p class="font-semibold text-slate-400">Bağlaç olan "ki" her zaman ayrı yazılır. SOMBAHÇEM (Sanki, Oysaki, Mademki, Belki, Halbuki, Çünkü, Meğerki) istisnadır ve bitişik yazılır.</p>';
+                    errorsList.appendChild(li4);
+                }
+            }
+
+            var scoreEl = document.getElementById('lab-score-badge');
+            if (scoreEl) scoreEl.innerText = 'Puan: ' + totalPoints + '/100';
 
             if (detectedCount === 0) {
-                errorsList.innerHTML = `
-                    <div class="p-4 bg-accent-emerald/10 border-l-4 border-accent-emerald rounded-r-xl text-xs sm:text-sm flex items-center space-x-2">
-                        <span class="text-lg">✨</span>
-                        <span class="font-bold text-emerald-300">Metinde hiçbir bariz TRK101 veya TRK102 hatası saptanmadı.</span>
-                    </div>
-                `;
-                document.getElementById('lab-score-badge').className = "px-3 py-1 bg-accent-emerald/10 text-accent-emerald rounded-lg text-xs font-black animate-pulse";
+                errorsList.innerHTML = '<div class="p-4 bg-accent-emerald/10 border-l-4 border-accent-emerald rounded-r-xl text-xs sm:text-sm flex items-center space-x-2">'
+                    + '<span class="text-lg">✨</span>'
+                    + '<span class="font-bold text-emerald-300">Metinde hiçbir bariz TRK101 veya TRK102 hatası saptanmadı.</span>'
+                    + '</div>';
+                if (scoreEl) scoreEl.className = 'px-3 py-1 bg-accent-emerald/10 text-accent-emerald rounded-lg text-xs font-black animate-pulse';
             } else {
-                document.getElementById('lab-score-badge').className = "px-3 py-1 bg-accent-rose/10 text-accent-rose rounded-lg text-xs font-black";
+                if (scoreEl) scoreEl.className = 'px-3 py-1 bg-accent-rose/10 text-accent-rose rounded-lg text-xs font-black';
             }
         }
 
         function fixLabErrorsAutomatically() {
-            let text = document.getElementById('lab-editor').value;
-            let fixedCount = 0;
+            var editor = document.getElementById('lab-editor');
+            if (!editor) return;
+            var text = editor.value;
+            var fixedCount = 0;
+            var fixedText = text;
 
-            grammarRules.forEach(rule => {
-                if (rule.pattern.test(text)) {
-                    text = text.replace(rule.pattern, rule.replace);
-                    fixedCount++;
+            grammarRules.forEach(function(rule) {
+                var re = makeRegex(rule.pattern);
+                re.lastIndex = 0;
+                var before = fixedText;
+                if (typeof rule.replace === 'function') {
+                    fixedText = fixedText.replace(re, rule.replace);
+                } else {
+                    fixedText = fixedText.replace(re, rule.replace);
                 }
+                if (fixedText !== before) fixedCount++;
             });
 
+            // Fix "de/da" attached to words
+            var deDaFix = /(\w+)(da|de)(?:\s|$)/gi;
+            deDaFix.lastIndex = 0;
+            var dMatch;
+            var deDaFixed = {};
+            var exceptions = { ve: 1, veya: 1, ile: 1, bir: 1, bu: 1, şu: 1, o: 1, ne: 1, hem: 1, ya: 1 };
+            while ((dMatch = deDaFix.exec(fixedText)) !== null) {
+                var w = dMatch[1].toLowerCase();
+                var e = dMatch[2].toLowerCase();
+                if (w.length < 2 || exceptions[w]) continue;
+                var iyelik = false;
+                var iyEk = ['im', 'in', 'in', 'imiz', 'iniz', 'leri', 'lık', 'lik'];
+                for (var ie = 0; ie < iyEk.length; ie++) { if (w.slice(-iyEk[ie].length) === iyEk[ie]) { iyelik = true; break; } }
+                if (iyelik && !deDaFixed[w + e]) {
+                    deDaFixed[w + e] = true;
+                    var newW = w + ' ' + e;
+                    var escapedW = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    var re2 = new RegExp(escapedW + e + '(\\s|$)', 'gi');
+                    fixedText = fixedText.replace(re2, newW + '$1');
+                    fixedCount++;
+                }
+                if (dMatch.index + dMatch[0].length >= fixedText.length) break;
+            }
+
+            // Fix "ki" conjunction
+            var kiFix = /\b(\w+)ki\b/gi;
+            kiFix.lastIndex = 0;
+            var kMatch;
+            var sombahcem = { sanki: 1, illaki: 1, mademki: 1, belki: 1, oysaki: 1, halbuki: 1, çünkü: 1, meğerki: 1 };
+            var kiFixed = {};
+            while ((kMatch = kiFix.exec(fixedText)) !== null) {
+                var kw2 = kMatch[0].toLowerCase();
+                if (sombahcem[kw2]) continue;
+                if (!kiFixed[kw2]) {
+                    kiFixed[kw2] = true;
+                    var base = kMatch[1];
+                    var escapedK = base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    var re3 = new RegExp(escapedK + 'ki\\b', 'gi');
+                    fixedText = fixedText.replace(re3, base + ' ki');
+                    fixedCount++;
+                }
+            }
+
             if (fixedCount > 0) {
-                document.getElementById('lab-editor').value = text;
+                editor.value = fixedText;
                 analyzeLabText();
-                showNotification(`Yapay zeka ${fixedCount} yazım hatasını otomatik olarak düzeltti!`, "success");
-                speakText("Tüm yazım hataları otomatik olarak başarıyla düzeltildi.");
+                showNotification('Yapay zeka ' + fixedCount + ' yazım hatasını otomatik olarak düzeltti!', 'success');
+                try {
+                    if (ttsEnabled && ('speechSynthesis' in window)) {
+                        speakText('Tüm yazım hataları otomatik olarak başarıyla düzeltildi.');
+                    }
+                } catch(e) {}
             } else {
-                showNotification("Düzeltilecek bariz bir hata bulunamadı.");
+                showNotification('Düzeltilecek bariz bir hata bulunamadı.');
             }
         }
 
