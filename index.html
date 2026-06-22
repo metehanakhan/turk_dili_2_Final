@@ -4125,18 +4125,43 @@
             var timerEl = document.getElementById('exam-timer');
             if (timerEl) { timerEl.classList.add('hidden'); timerEl.classList.remove('text-accent-rose'); }
             switchTab(catToTab(cat));
-            // Scroll to the relevant topic section and open its accordion
+            // Map categories to accordion header keywords for auto-open
+            var catToKeyword = {
+                'Edebiyat Tarihi': ['Edebiyat Tarihi Dönemleri', 'Edebiyat Tarihi'],
+                'Edebî Türler (Sanatsal)': ['Edebî Türler', 'Roman, Hikâye'],
+                'Edebî Türler (Öğretici)': ['Edebî Türler', 'Roman, Hikâye'],
+                'Edebi Türler': ['Edebî Türler', 'Roman, Hikâye'],
+                'Yazılı Anlatım': ['Yazılı', 'Sözlü Anlatım'],
+                'Sözlü Anlatım': ['Yazılı', 'Sözlü Anlatım'],
+                'Paragraf Bilgisi': ['Paragraf Bilgisi'],
+                'Dil Bilgisi': ['Dil Bilgisi: Çatı'],
+                'Dil Bilgisi / Çatı': ['Dil Bilgisi: Çatı'],
+                'Resmi Yazışmalar': ['Resmi Yazışmalar'],
+                'Resmî Yazışmalar': ['Resmi Yazışmalar'],
+                'Bilimsel Araştırma': ['Bilimsel Araştırma'],
+                'Bilimsel Araştırma Yöntemleri': ['Bilimsel Araştırma'],
+                'İletişim': ['İletişim'],
+                'İletişim ve Sözlü Anlatım': ['İletişim'],
+                'Dil Kültürü': ['İletişim ve Dil Kültürü'],
+                'Şiir Bilgisi & Klasik Edebiyat': ['Şiir Bilgisi'],
+                'Yazım Kuralları': ['Dil Bilgisi: Çatı'],
+            };
             setTimeout(function() {
                 var tabEl = document.getElementById('tab-' + catToTab(cat));
                 if (!tabEl) return;
-                // Search for the category text within accordion headers
+                var keywords = catToKeyword[cat] || [cat];
                 var headers = tabEl.querySelectorAll('[onclick*="toggleSummaryAccordion"]');
                 var found = false;
-                var catLower = cat.toLowerCase();
                 for (var i = 0; i < headers.length; i++) {
                     var headerText = headers[i].innerText.toLowerCase();
-                    if (headerText.indexOf(catLower) !== -1) {
-                        // Open the accordion
+                    var match = false;
+                    for (var k = 0; k < keywords.length; k++) {
+                        if (headerText.indexOf(keywords[k].toLowerCase()) !== -1) {
+                            match = true;
+                            break;
+                        }
+                    }
+                    if (match) {
                         var panel = headers[i].nextElementSibling;
                         if (panel && panel.classList.contains('hidden')) {
                             panel.classList.remove('hidden');
@@ -4149,12 +4174,19 @@
                     }
                 }
                 if (!found) {
-                    // Fallback: search content panels
-                    var allPanels = tabEl.querySelectorAll('div > div > div');
-                    for (var j = 0; j < allPanels.length; j++) {
-                        var panelText = allPanels[j].innerText.toLowerCase();
-                        if (panelText.indexOf(catLower) !== -1) {
-                            allPanels[j].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    // Fallback: search all content for category keywords
+                    var allDivs = tabEl.querySelectorAll('div');
+                    for (var j = 0; j < allDivs.length; j++) {
+                        var divText = allDivs[j].innerText.toLowerCase();
+                        var match2 = false;
+                        for (var k2 = 0; k2 < keywords.length; k2++) {
+                            if (divText.indexOf(keywords[k2].toLowerCase()) !== -1) {
+                                match2 = true;
+                                break;
+                            }
+                        }
+                        if (match2) {
+                            allDivs[j].scrollIntoView({ behavior: 'smooth', block: 'center' });
                             break;
                         }
                     }
@@ -5000,10 +5032,16 @@
 
         // Mini Exam Mode
         function openFullExam() {
+            var resultsBox = document.getElementById('results-analytics-box');
+            // If results are already showing, just switch to tab without resetting
+            if (resultsBox && !resultsBox.classList.contains('hidden')) {
+                switchTab('quiz-engine');
+                return;
+            }
             if (examTimerInterval) { clearInterval(examTimerInterval); examTimerInterval = null; }
             var timerEl = document.getElementById('exam-timer');
             if (timerEl) { timerEl.classList.add('hidden'); timerEl.classList.remove('text-accent-rose'); }
-            document.getElementById('results-analytics-box').classList.add('hidden');
+            resultsBox.classList.add('hidden');
             document.getElementById('active-quiz-box').classList.remove('hidden');
             examQuestions = [...questionsDataset];
             currentQuestionIndex = 0;
