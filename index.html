@@ -17,55 +17,57 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,600;0,800;1,700&display=swap" rel="stylesheet">
     
     <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        brand: {
-                            50: '#eef2ff', 100: '#e0e7ff', 200: '#c7d2fe',
-                            500: '#6366f1', 600: '#4f46e5', 700: '#4338ca', 900: '#312e81'
+        try {
+            tailwind.config = {
+                theme: {
+                    extend: {
+                        colors: {
+                            brand: {
+                                50: '#eef2ff', 100: '#e0e7ff', 200: '#c7d2fe',
+                                500: '#6366f1', 600: '#4f46e5', 700: '#4338ca', 900: '#312e81'
+                            },
+                            accent: {
+                                emerald: '#10b981', amber: '#f59e0b', rose: '#f43f5e',
+                                indigo: '#6366f1', violet: '#8b5cf6', cyan: '#06b6d4'
+                            }
                         },
-                        accent: {
-                            emerald: '#10b981', amber: '#f59e0b', rose: '#f43f5e',
-                            indigo: '#6366f1', violet: '#8b5cf6', cyan: '#06b6d4'
-                        }
-                    },
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                        serif: ['Playfair Display', 'serif'],
-                    },
-                    animation: {
-                        'glow': 'glow 2s ease-in-out infinite alternate',
-                        'float': 'float 3s ease-in-out infinite',
-                        'pulse-soft': 'pulseSoft 2s ease-in-out infinite',
-                        'slide-up': 'slideUp 0.4s ease-out',
-                        'scale-in': 'scaleIn 0.3s ease-out'
-                    },
-                    keyframes: {
-                        glow: {
-                            '0%': { boxShadow: '0 0 5px rgba(99,102,241,0.2), 0 0 10px rgba(99,102,241,0.1)' },
-                            '100%': { boxShadow: '0 0 20px rgba(99,102,241,0.4), 0 0 40px rgba(99,102,241,0.2)' }
+                        fontFamily: {
+                            sans: ['Inter', 'sans-serif'],
+                            serif: ['Playfair Display', 'serif'],
                         },
-                        float: {
-                            '0%, 100%': { transform: 'translateY(0)' },
-                            '50%': { transform: 'translateY(-6px)' }
+                        animation: {
+                            'glow': 'glow 2s ease-in-out infinite alternate',
+                            'float': 'float 3s ease-in-out infinite',
+                            'pulse-soft': 'pulseSoft 2s ease-in-out infinite',
+                            'slide-up': 'slideUp 0.4s ease-out',
+                            'scale-in': 'scaleIn 0.3s ease-out'
                         },
-                        pulseSoft: {
-                            '0%, 100%': { opacity: '1' },
-                            '50%': { opacity: '0.7' }
-                        },
-                        slideUp: {
-                            '0%': { transform: 'translateY(20px)', opacity: '0' },
-                            '100%': { transform: 'translateY(0)', opacity: '1' }
-                        },
-                        scaleIn: {
-                            '0%': { transform: 'scale(0.95)', opacity: '0' },
-                            '100%': { transform: 'scale(1)', opacity: '1' }
+                        keyframes: {
+                            glow: {
+                                '0%': { boxShadow: '0 0 5px rgba(99,102,241,0.2), 0 0 10px rgba(99,102,241,0.1)' },
+                                '100%': { boxShadow: '0 0 20px rgba(99,102,241,0.4), 0 0 40px rgba(99,102,241,0.2)' }
+                            },
+                            float: {
+                                '0%, 100%': { transform: 'translateY(0)' },
+                                '50%': { transform: 'translateY(-6px)' }
+                            },
+                            pulseSoft: {
+                                '0%, 100%': { opacity: '1' },
+                                '50%': { opacity: '0.7' }
+                            },
+                            slideUp: {
+                                '0%': { transform: 'translateY(20px)', opacity: '0' },
+                                '100%': { transform: 'translateY(0)', opacity: '1' }
+                            },
+                            scaleIn: {
+                                '0%': { transform: 'scale(0.95)', opacity: '0' },
+                                '100%': { transform: 'scale(1)', opacity: '1' }
+                            }
                         }
                     }
                 }
             }
-        }
+        } catch(e) {}
     </script>
     
     <style>
@@ -2948,11 +2950,11 @@
         let examQuestions = [];
         let currentQuestionIndex = 0;
         let selectedAnswers = {}; 
-        let bookmarkedQuestions = JSON.parse(localStorage.getItem('bookmarked_questions_tr2')) || [];
+        let bookmarkedQuestions = (function(){ try { return JSON.parse(localStorage.getItem('bookmarked_questions_tr2')) || []; } catch(e) { return []; } })();
         let currentFlashcardIndex = 0;
         let studyMode = 'quiz'; 
         let practiceSessionStats = { attempted: 0, correct: 0, wrong: 0 };
-        let attemptHistory = JSON.parse(localStorage.getItem('attempt_history_tr102')) || {};
+        let attemptHistory = (function(){ try { return JSON.parse(localStorage.getItem('attempt_history_tr102')) || {}; } catch(e) { return {}; } })();
         let autoAdvanceTimer = null;
         let ttsEnabled = false;
         let activeUtterance = null;
@@ -2998,10 +3000,13 @@
                 processVoices();
             };
 
-            // Samsung Internet / mobile fallback: retry on focus
+            // Samsung Internet / mobile fallback: retry on focus or click
             document.addEventListener('visibilitychange', function() {
                 if (!document.hidden && !voiceLoaded) processVoices();
             });
+            document.addEventListener('click', function onceClick() {
+                if (!voiceLoaded) processVoices();
+            }, { once: true });
         }
 
         function isTurkishByLang(v) {
@@ -3060,10 +3065,18 @@
         }
 
         window.onload = function() {
-            initApp();
-            analyzeLabText(); 
-            initVoices();
-            applySavedTheme();
+            try {
+                initApp();
+            } catch(e) { console.error('initApp error:', e); }
+            try {
+                analyzeLabText();
+            } catch(e) { console.error('analyzeLabText error:', e); }
+            try {
+                initVoices();
+            } catch(e) { console.error('initVoices error:', e); }
+            try {
+                applySavedTheme();
+            } catch(e) { console.error('applySavedTheme error:', e); }
         };
 
         document.addEventListener('click', function(e) {
@@ -3157,10 +3170,14 @@
         }
 
         function updateGlobalStats() {
-            const completedCount = Object.keys(selectedAnswers).length;
-            const percentage = Math.round((completedCount / examQuestions.length) * 100);
-            document.getElementById('stat-completed').innerText = `${percentage}%`;
-            document.getElementById('stat-favorites-count').innerText = bookmarkedQuestions.length;
+            try {
+                const completedCount = Object.keys(selectedAnswers).length;
+                const percentage = Math.round((completedCount / examQuestions.length) * 100);
+                var el = document.getElementById('stat-completed');
+                if (el) el.innerText = `${percentage}%`;
+                el = document.getElementById('stat-favorites-count');
+                if (el) el.innerText = bookmarkedQuestions.length;
+            } catch(e) {}
         }
 
         function updateModeBadge() {
@@ -3181,14 +3198,20 @@
         }
 
         function updatePracticeStatsUI() {
-            const total = practiceSessionStats.attempted;
-            const correct = practiceSessionStats.correct;
-            const wrong = practiceSessionStats.wrong;
-            const acc = total > 0 ? Math.round((correct / total) * 100) : 0;
-            document.getElementById('ps-attempted').textContent = total;
-            document.getElementById('ps-correct').textContent = correct;
-            document.getElementById('ps-wrong').textContent = wrong;
-            document.getElementById('ps-accuracy').textContent = total > 0 ? `%${acc}` : '-%';
+            try {
+                const total = practiceSessionStats.attempted;
+                const correct = practiceSessionStats.correct;
+                const wrong = practiceSessionStats.wrong;
+                const acc = total > 0 ? Math.round((correct / total) * 100) : 0;
+                var el = document.getElementById('ps-attempted');
+                if (el) el.textContent = total;
+                el = document.getElementById('ps-correct');
+                if (el) el.textContent = correct;
+                el = document.getElementById('ps-wrong');
+                if (el) el.textContent = wrong;
+                el = document.getElementById('ps-accuracy');
+                if (el) el.textContent = total > 0 ? `%${acc}` : '-%';
+            } catch(e) {}
         }
 
         function stopAutoAdvance() {
@@ -3314,29 +3337,81 @@
         }
 
         function speakText(text) {
-            if (!ttsEnabled || !('speechSynthesis' in window)) return;
+            if (!ttsEnabled || !('speechSynthesis' in window)) {
+                showNotification('Seslendirme kullanılamıyor', 'amber');
+                return;
+            }
             window.speechSynthesis.cancel();
             isPausedManually = false;
             lastSpokenText = text;
-            
+
+            // Validate selectedVoice is still available (important for Chrome Android)
+            if (selectedVoice) {
+                var voices = window.speechSynthesis.getVoices();
+                var found = false;
+                for (var i = 0; i < voices.length; i++) {
+                    if (voices[i].name === selectedVoice.name) {
+                        selectedVoice = voices[i];
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    // Voice no longer available — try to find Turkish voice
+                    for (var i = 0; i < voices.length; i++) {
+                        if (isTurkishByLang(voices[i]) || isTurkishByName(voices[i])) {
+                            selectedVoice = voices[i];
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) selectedVoice = null;
+                }
+            }
+
             activeUtterance = new SpeechSynthesisUtterance(text);
-            activeUtterance.lang = selectedVoice && selectedVoice.lang ? selectedVoice.lang : 'tr-TR';
-            activeUtterance.rate = selectedVoice && selectedVoice.lang && selectedVoice.lang.startsWith('tr') ? 1.15 : 1.0;
-            if (selectedVoice) activeUtterance.voice = selectedVoice;
-            
+            var lang = selectedVoice && selectedVoice.lang ? selectedVoice.lang : 'tr-TR';
+            activeUtterance.lang = lang;
+            activeUtterance.rate = lang.startsWith('tr') ? 1.15 : 1.0;
+
+            // Only assign voice if we have one — Chrome Android may speak with system default otherwise
+            if (selectedVoice) {
+                activeUtterance.voice = selectedVoice;
+            }
+
             activeUtterance.onstart = function() {
-                document.getElementById('speech-control-bar').classList.remove('hidden');
+                var bar = document.getElementById('speech-control-bar');
+                if (bar) bar.classList.remove('hidden');
             };
             activeUtterance.onend = function() {
                 if (!isPausedManually) {
-                    document.getElementById('speech-control-bar').classList.add('hidden');
+                    var bar = document.getElementById('speech-control-bar');
+                    if (bar) bar.classList.add('hidden');
                 }
             };
-            activeUtterance.onerror = function() {
-                document.getElementById('speech-control-bar').classList.add('hidden');
+            activeUtterance.onerror = function(e) {
+                var bar = document.getElementById('speech-control-bar');
+                if (bar) bar.classList.add('hidden');
+                // Chrome Android: try once more with lang-only (no voice assignment)
+                if (!selectedVoice && e.error !== 'canceled') {
+                    var fallback = new SpeechSynthesisUtterance(text);
+                    fallback.lang = 'tr-TR';
+                    fallback.rate = 1.0;
+                    fallback.onstart = activeUtterance.onstart;
+                    fallback.onend = activeUtterance.onend;
+                    fallback.onerror = function() {
+                        showNotification('Seslendirme başarısız. Google TTS Türkçe ses paketi yüklü mü?', 'amber');
+                    };
+                    window.speechSynthesis.speak(fallback);
+                } else if (e.error !== 'canceled') {
+                    showNotification('Seslendirme hatası: ' + e.error, 'amber');
+                }
             };
-            
-            window.speechSynthesis.speak(activeUtterance);
+
+            // Chrome Android: ensure speech synthesis is triggered by user gesture
+            try { window.speechSynthesis.speak(activeUtterance); } catch(e) {
+                showNotification('Seslendirme başlatılamadı: ' + e.message, 'amber');
+            }
         }
 
         function pauseSpeech() {
@@ -3385,8 +3460,10 @@
         function stopSpeech() {
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
-                document.getElementById('speech-control-bar').classList.add('hidden');
+                var bar = document.getElementById('speech-control-bar');
+                if (bar) bar.classList.add('hidden');
             }
+            if (examTimerInterval) { clearInterval(examTimerInterval); examTimerInterval = null; }
         }
 
         function toggleTheme() {
@@ -3462,12 +3539,15 @@
         }
 
         function getAllVoices() {
-            var v = window.speechSynthesis.getVoices();
-            if (v.length === 0) {
-                window.speechSynthesis.getVoices();
-                v = window.speechSynthesis.getVoices();
-            }
-            return v || [];
+            if (!('speechSynthesis' in window)) return [];
+            try {
+                var v = window.speechSynthesis.getVoices() || [];
+                if (v.length === 0) {
+                    window.speechSynthesis.getVoices();
+                    v = window.speechSynthesis.getVoices() || [];
+                }
+                return v;
+            } catch(e) { return []; }
         }
 
         function populateVoiceSelector() {
@@ -3651,12 +3731,16 @@
             }
 
             if (voices.length === 0) {
-                list.innerHTML = '<div class="px-3 py-6 text-xs text-slate-500 text-center">Ses motoru yüklenmedi. Sayfayı yenile veya Edge tarayıcı dene.<br><button onclick="populateVoiceSelector()" class="mt-2 px-3 py-1 bg-brand-500/20 text-brand-300 rounded-lg text-[10px] font-bold">Tekrar Tara</button></div>';
+                list.innerHTML = '<div class="px-3 py-6 text-xs text-slate-500 text-center space-y-2">Ses motoru yüklenmedi.<br><button onclick="populateVoiceSelector()" class="px-3 py-1 bg-brand-500/20 text-brand-300 rounded-lg text-[10px] font-bold">Tekrar Tara</button></div>';
+            } else if (turkishVoices.length === 0) {
+                // Chrome Android often has no Turkish TTS voices
+                list.innerHTML = '<div class="px-3 py-4 text-xs text-slate-500 text-center space-y-2">🇹🇷 Türkçe ses bulunamadı.<br><span class="text-[9px] text-amber-400/70">Android: Ayarlar > Genel Yönetim > Dil ve Giriş > Metin Okuma > Google TTS > Ses Verilerini Yükle</span><br><button onclick="populateVoiceSelector()" class="mt-1 px-3 py-1 bg-brand-500/20 text-brand-300 rounded-lg text-[10px] font-bold">Tekrar Tara</button></div>';
             }
         }
 
         function toggleVoiceDropdown() {
             var dd = document.getElementById('voice-dropdown');
+            if (!dd) return;
             dd.classList.toggle('hidden');
             if (!dd.classList.contains('hidden')) populateVoiceSelector();
         }
@@ -3679,16 +3763,21 @@
         }
 
         function renderFlashcard() {
-            const card = flashcardsDataset[currentFlashcardIndex];
-            document.getElementById('flash-category').innerText = card.cat;
-            document.getElementById('flash-front-text').innerText = card.front;
-            document.getElementById('flash-back-text').innerText = card.back;
-            
-            const cardEl = document.querySelector('.flashcard');
-            cardEl.classList.remove('flipped');
-            if (ttsEnabled) {
-                speakCurrentFlashcard();
-            }
+            try {
+                const card = flashcardsDataset[currentFlashcardIndex];
+                var el = document.getElementById('flash-category');
+                if (el) el.innerText = card.cat;
+                el = document.getElementById('flash-front-text');
+                if (el) el.innerText = card.front;
+                el = document.getElementById('flash-back-text');
+                if (el) el.innerText = card.back;
+                
+                const cardEl = document.querySelector('.flashcard');
+                if (cardEl) cardEl.classList.remove('flipped');
+                if (ttsEnabled) {
+                    speakCurrentFlashcard();
+                }
+            } catch(e) {}
         }
 
         function flipFlashcard(element) {
@@ -3714,28 +3803,41 @@
             var hintBtn = document.getElementById('btn-hint');
             if (hintBtn) hintBtn.querySelector('span').textContent = 'İpucu Göster';
 
-            document.getElementById('engine-question-counter').innerText = `Soru: ${currentQuestionIndex + 1} / ${examQuestions.length}`;
-            document.getElementById('engine-question-category').innerText = q.cat;
-            document.getElementById('engine-progress').style.width = `${((currentQuestionIndex + 1) / examQuestions.length) * 100}%`;
-            document.getElementById('question-text').innerText = q.q;
+            try {
+                var el = document.getElementById('engine-question-counter');
+                if (el) el.innerText = `Soru: ${currentQuestionIndex + 1} / ${examQuestions.length}`;
+                el = document.getElementById('engine-question-category');
+                if (el) el.innerText = q.cat;
+                el = document.getElementById('engine-progress');
+                if (el) el.style.width = `${((currentQuestionIndex + 1) / examQuestions.length) * 100}%`;
+                el = document.getElementById('question-text');
+                if (el) el.innerText = q.q;
+            } catch(e) {}
 
             updateModeBadge();
             updatePracticeStatsUI();
 
-            const isBookmarked = bookmarkedQuestions.includes(q.q);
-            const favBtn = document.getElementById('btn-favorite');
-            if (isBookmarked) {
-                favBtn.className = "p-2.5 rounded-xl border border-accent-amber/30 bg-accent-amber/10 hover:bg-accent-amber/20 transition-colors text-accent-amber";
-            } else {
-                favBtn.className = "p-2.5 rounded-xl border border-slate-600 hover:bg-slate-700 transition-colors text-slate-400";
-            }
+            try {
+                const isBookmarked = bookmarkedQuestions.includes(q.q);
+                const favBtn = document.getElementById('btn-favorite');
+                if (favBtn) {
+                    if (isBookmarked) {
+                        favBtn.className = "p-2.5 rounded-xl border border-accent-amber/30 bg-accent-amber/10 hover:bg-accent-amber/20 transition-colors text-accent-amber";
+                    } else {
+                        favBtn.className = "p-2.5 rounded-xl border border-slate-600 hover:bg-slate-700 transition-colors text-slate-400";
+                    }
+                }
+            } catch(e) {}
 
-            const optionsGrid = document.getElementById('engine-options-grid');
-            optionsGrid.innerHTML = '';
+            try {
+                const optionsGrid = document.getElementById('engine-options-grid');
+                if (optionsGrid) optionsGrid.innerHTML = '';
 
-            const explanationContainer = document.getElementById('explanation-container');
-            explanationContainer.classList.add('hidden');
-            document.getElementById('study-link-container').classList.add('hidden');
+                const explanationContainer = document.getElementById('explanation-container');
+                if (explanationContainer) explanationContainer.classList.add('hidden');
+                var sl = document.getElementById('study-link-container');
+                if (sl) sl.classList.add('hidden');
+            } catch(e) {}
 
             q.a.forEach((option, idx) => {
                 const btn = document.createElement('button');
@@ -4110,10 +4212,13 @@
 
         function renderLibrary() {
             const container = document.getElementById('library-questions-list');
+            if (!container) return;
             container.innerHTML = '';
 
-            const selectedCat = document.getElementById('library-category-select').value;
-            const searchVal = document.getElementById('library-search').value.toLowerCase();
+            var catEl = document.getElementById('library-category-select');
+            var searchEl = document.getElementById('library-search');
+            const selectedCat = catEl ? catEl.value : 'all';
+            const searchVal = searchEl ? searchEl.value.toLowerCase() : '';
 
             questionsDataset.forEach((q, i) => {
                 if (selectedCat !== 'all' && q.cat !== selectedCat) return;
@@ -4378,11 +4483,14 @@
         }
 
         function analyzeLabText() {
-            const text = document.getElementById('lab-editor').value;
+            var editor = document.getElementById('lab-editor');
+            if (!editor) return;
+            const text = editor.value;
             const feedbackPanel = document.getElementById('lab-feedback-panel');
             const errorsList = document.getElementById('lab-errors-list');
             const scoreBadge = document.getElementById('lab-score-badge');
 
+            if (!feedbackPanel || !scoreBadge) return;
             if (!text.trim()) {
                 feedbackPanel.classList.add('hidden');
                 scoreBadge.classList.add('hidden');
@@ -4543,7 +4651,7 @@
         }
 
         // --- WRONG ANSWER BANK ---
-        let wrongAnswerBank = JSON.parse(localStorage.getItem('wrong_bank_tr102')) || [];
+        let wrongAnswerBank = (function(){ try { return JSON.parse(localStorage.getItem('wrong_bank_tr102')) || []; } catch(e) { return []; } })();
 
         function getWrongAnswers() {
             wrongAnswerBank = [];
@@ -4981,22 +5089,28 @@
 
         // Add timed mode button to nav
         setTimeout(() => {
-            const modeBtns = document.querySelector('#mode-quiz').parentElement;
-            const timerBtn = document.createElement('button');
-            timerBtn.onclick = toggleExamTimer;
-            timerBtn.className = "px-3 py-1.5 rounded-lg transition-all text-slate-400 hover:text-white";
-            timerBtn.id = "mode-timer";
-            timerBtn.innerText = "⏱ Süreli";
-            if (modeBtns) modeBtns.appendChild(timerBtn);
+            try {
+                var modeQuiz = document.querySelector('#mode-quiz');
+                if (modeQuiz) {
+                    const modeBtns = modeQuiz.parentElement;
+                    const timerBtn = document.createElement('button');
+                    timerBtn.onclick = toggleExamTimer;
+                    timerBtn.className = "px-3 py-1.5 rounded-lg transition-all text-slate-400 hover:text-white";
+                    timerBtn.id = "mode-timer";
+                    timerBtn.innerText = "⏱ Süreli";
+                    if (modeBtns) modeBtns.appendChild(timerBtn);
+                }
+            } catch(e) {}
 
-            // Add wrong bank option to library filter
-            const catSelect = document.getElementById('library-category-select');
-            if (catSelect) {
-                const opt = document.createElement('option');
-                opt.value = 'wrong';
-                opt.innerText = 'Yanlış Bankası';
-                catSelect.appendChild(opt);
-            }
+            try {
+                const catSelect = document.getElementById('library-category-select');
+                if (catSelect) {
+                    const opt = document.createElement('option');
+                    opt.value = 'wrong';
+                    opt.innerText = 'Yanlış Bankası';
+                    catSelect.appendChild(opt);
+                }
+            } catch(e) {}
         }, 100);
     </script>
 </body>
