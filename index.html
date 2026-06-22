@@ -2956,6 +2956,7 @@
         let examQuestions = [];
         let currentQuestionIndex = 0;
         let selectedAnswers = {}; 
+        let lastExamData = null;
         let bookmarkedQuestions = (function(){ try { return JSON.parse(localStorage.getItem('bookmarked_questions_tr2')) || []; } catch(e) { return []; } })();
         let currentFlashcardIndex = 0;
         let studyMode = 'quiz'; 
@@ -4015,6 +4016,7 @@
             document.getElementById('letter-grade-badge').innerText = letterGrade;
             document.getElementById('final-feedback-text').innerText = feedback;
 
+            lastExamData = { correct: correctCount, wrong: totalCount - correctCount, total: totalCount, catStats: categoryPerformances };
             renderAnalyticsCharts(correctCount, totalCount - correctCount, categoryPerformances);
             generateAIStudyRecommendations(categoryPerformances);
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -4286,6 +4288,7 @@
             selectedAnswers = {};
             currentQuestionIndex = 0;
             practiceSessionStats = { attempted: 0, correct: 0, wrong: 0 };
+            lastExamData = null;
             updatePracticeStatsUI();
             updateGlobalStats();
             document.getElementById('results-analytics-box').classList.add('hidden');
@@ -5034,8 +5037,12 @@
         function openFullExam() {
             var resultsBox = document.getElementById('results-analytics-box');
             // If results are already showing, just switch to tab without resetting
-            if (resultsBox && !resultsBox.classList.contains('hidden')) {
+            if (resultsBox && !resultsBox.classList.contains('hidden') && lastExamData) {
                 switchTab('quiz-engine');
+                // Re-render charts and recommendations (chart canvases break on display:none)
+                renderAnalyticsCharts(lastExamData.correct, lastExamData.wrong, lastExamData.catStats);
+                generateAIStudyRecommendations(lastExamData.catStats);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
                 return;
             }
             if (examTimerInterval) { clearInterval(examTimerInterval); examTimerInterval = null; }
