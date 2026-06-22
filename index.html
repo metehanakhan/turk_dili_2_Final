@@ -2961,6 +2961,7 @@
         let selectedVoice = null;
         let lastSpokenText = '';
         let isPausedManually = false;
+        let currentCharIndex = 0;
 
         function initVoices() {
             if (!('speechSynthesis' in window)) return;
@@ -3343,6 +3344,7 @@
             }
             window.speechSynthesis.cancel();
             isPausedManually = false;
+            currentCharIndex = 0;
             lastSpokenText = text;
 
             // Validate selectedVoice is still available (important for Chrome Android)
@@ -3382,6 +3384,11 @@
             activeUtterance.onstart = function() {
                 var bar = document.getElementById('speech-control-bar');
                 if (bar) bar.classList.remove('hidden');
+            };
+            activeUtterance.onboundary = function(e) {
+                if (e.name === 'word' || e.name === 'sentence') {
+                    currentCharIndex = e.charIndex;
+                }
             };
             activeUtterance.onend = function() {
                 if (!isPausedManually) {
@@ -3436,25 +3443,33 @@
                 // Some browsers need a small delay — verify resume actually worked
                 setTimeout(function() {
                     if (window.speechSynthesis.paused && lastSpokenText) {
-                        // resume failed (common on Chrome Android) — re-speak
+                        // resume failed (common on Chrome Android) — re-speak from last known position
                         window.speechSynthesis.cancel();
                         setTimeout(function() {
                             if (!lastSpokenText) return;
+                            var textToSpeak = lastSpokenText;
+                            if (currentCharIndex > 0 && currentCharIndex < lastSpokenText.length) {
+                                textToSpeak = lastSpokenText.substring(currentCharIndex);
+                            }
                             var tempTts = ttsEnabled;
                             ttsEnabled = true;
-                            speakText(lastSpokenText);
+                            speakText(textToSpeak);
                             ttsEnabled = tempTts;
                         }, 100);
                     }
                 }, 300);
             } else if (lastSpokenText) {
-                // speech was cancelled, ended, or pause didn't work — re-speak
+                // speech was cancelled, ended, or pause didn't work — re-speak from last known position
                 isPausedManually = false;
                 setTimeout(function() {
                     if (!lastSpokenText) return;
+                    var textToSpeak = lastSpokenText;
+                    if (currentCharIndex > 0 && currentCharIndex < lastSpokenText.length) {
+                        textToSpeak = lastSpokenText.substring(currentCharIndex);
+                    }
                     var tempTts = ttsEnabled;
                     ttsEnabled = true;
-                    speakText(lastSpokenText);
+                    speakText(textToSpeak);
                     ttsEnabled = tempTts;
                 }, 100);
             }
