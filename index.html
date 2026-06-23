@@ -5038,13 +5038,26 @@
             var resultsBox = document.getElementById('results-analytics-box');
             // If results are already showing, just switch to tab without resetting
             if (resultsBox && !resultsBox.classList.contains('hidden') && lastExamData) {
-                switchTab('quiz-engine');
-                // Re-render charts and recommendations (chart canvases break on display:none)
-                renderAnalyticsCharts(lastExamData.correct, lastExamData.wrong, lastExamData.catStats);
-                generateAIStudyRecommendations(lastExamData.catStats);
+                // Manually show quiz-engine tab — bypass switchTab to avoid loadQuizQuestion / timer reset
+                document.querySelectorAll('.tab-content').forEach(function(el) { el.classList.add('hidden'); });
+                document.getElementById('tab-quiz-engine').classList.remove('hidden');
+                document.querySelectorAll('.nav-item').forEach(function(el) {
+                    el.classList.remove('text-brand-400'); el.classList.add('text-slate-500');
+                });
+                var n = document.getElementById('nav-quiz-engine');
+                if (n) { n.classList.remove('text-slate-500'); n.classList.add('text-brand-400'); }
+                currentTab = 'quiz-engine';
                 window.scrollTo({ top: 0, behavior: 'smooth' });
+                // Wait for layout, then re-render charts + recommendations
+                requestAnimationFrame(function() {
+                    if (pieChartInstance) { pieChartInstance.destroy(); pieChartInstance = null; }
+                    if (barChartInstance) { barChartInstance.destroy(); barChartInstance = null; }
+                    renderAnalyticsCharts(lastExamData.correct, lastExamData.wrong, lastExamData.catStats);
+                    generateAIStudyRecommendations(lastExamData.catStats);
+                });
                 return;
             }
+            lastExamData = null;
             if (examTimerInterval) { clearInterval(examTimerInterval); examTimerInterval = null; }
             var timerEl = document.getElementById('exam-timer');
             if (timerEl) { timerEl.classList.add('hidden'); timerEl.classList.remove('text-accent-rose'); }
